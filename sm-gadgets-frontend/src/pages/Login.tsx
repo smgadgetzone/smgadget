@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { useApp } from '@/context/AppContext';
 import { toast } from '@/hooks/use-toast';
+import { getApiUrl } from '@/lib/api';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -92,7 +93,7 @@ const Login = () => {
 
     try {
       const endpoint = isSignup ? '/api/auth/register' : '/api/auth/login';
-      const response = await fetch(endpoint, {
+      const response = await fetch(getApiUrl(endpoint), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

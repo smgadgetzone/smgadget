@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
+import { getApiUrl } from '@/lib/api';
 
 const Contact = () => {
   const [formData, setFormData] = useState({
@@ -73,7 +74,7 @@ const Contact = () => {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('/api/contact', {
+      const response = await fetch(getApiUrl('/api/contact'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),

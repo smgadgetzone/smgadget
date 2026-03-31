@@ -14,6 +14,7 @@ import { Product } from '@/types';
 import { toast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
+import { getApiUrl } from '@/lib/api';
 
 // All available categories
 const ALL_CATEGORIES = [
@@ -79,7 +80,7 @@ const AdminPanel = () => {
 
   const fetchOrders = async () => {
     try {
-      const response = await fetch('/api/orders');
+      const response = await fetch(getApiUrl('/api/orders'));
       if (response.ok) {
         const data = await response.json();
         setAllOrders(data);
@@ -92,7 +93,7 @@ const AdminPanel = () => {
 
   const fetchCoupons = async () => {
     try {
-      const response = await fetch('/api/coupons', {
+      const response = await fetch(getApiUrl('/api/coupons'), {
         headers: { 'Authorization': `Bearer ${user?.token}` }
       });
       if (response.ok) {
@@ -107,7 +108,7 @@ const AdminPanel = () => {
       return;
     }
     try {
-      const res = await fetch('/api/coupons', {
+      const res = await fetch(getApiUrl('/api/coupons'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -135,7 +136,7 @@ const AdminPanel = () => {
   const handleDeleteCoupon = async (id: string) => {
     if (!confirm("Delete this coupon permanently?")) return;
     try {
-      await fetch(`/api/coupons/${id}`, {
+      await fetch(getApiUrl(`/api/coupons/${id}`), {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${user?.token}` }
       });
@@ -147,7 +148,7 @@ const AdminPanel = () => {
   const handleUpdateOrder = async () => {
     if (!editingOrder) return;
     try {
-      const response = await fetch(`/api/orders/${editingOrder._id}`, {
+      const response = await fetch(getApiUrl(`/api/orders/${editingOrder._id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: editingOrder.status })
@@ -165,7 +166,7 @@ const AdminPanel = () => {
   const handleDeleteOrder = async (id: string) => {
     if (!confirm("Delete this order?")) return;
     try {
-      const response = await fetch(`/api/orders/${id}`, { method: 'DELETE' });
+      const response = await fetch(getApiUrl(`/api/orders/${id}`), { method: 'DELETE' });
       if (response.ok) {
         toast({ title: "Order Deleted", description: "Order has been removed." });
         fetchOrders();
@@ -286,7 +287,7 @@ const AdminPanel = () => {
         isTrending: newProduct.isTrending
       };
 
-      const response = await fetch('/api/products', {
+      const response = await fetch(getApiUrl('/api/products'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -332,7 +333,7 @@ const AdminPanel = () => {
         isTrending: editingProduct.isTrending
       };
 
-      const response = await fetch(`/api/products/${editingProduct.id}`, {
+      const response = await fetch(getApiUrl(`/api/products/${editingProduct.id}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -368,7 +369,7 @@ const AdminPanel = () => {
     if (!window.confirm("Are you sure you want to delete this product?")) return;
 
     try {
-      const response = await fetch(`/api/products/${productId}`, {
+      const response = await fetch(getApiUrl(`/api/products/${productId}`), {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${user?.token}`

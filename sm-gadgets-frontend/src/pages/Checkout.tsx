@@ -9,6 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useApp } from '@/context/AppContext';
 import { toast } from '@/hooks/use-toast';
+import { getApiUrl } from '@/lib/api';
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -67,7 +68,7 @@ const Checkout = () => {
 
     setCouponLoading(true);
     try {
-      const res = await fetch('/api/coupons/verify', {
+      const res = await fetch(getApiUrl('/api/coupons/verify'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: couponCode })
@@ -126,7 +127,7 @@ const Checkout = () => {
         }
       };
 
-      const response = await fetch('/api/orders', {
+      const response = await fetch(getApiUrl('/api/orders'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -199,7 +200,7 @@ const Checkout = () => {
       }
 
       try {
-        const rpRes = await fetch('/api/orders/create-razorpay-order', {
+        const rpRes = await fetch(getApiUrl('/api/orders/create-razorpay-order'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ amount: total })
@@ -208,7 +209,7 @@ const Checkout = () => {
         if (!rpRes.ok) throw new Error('Could not initialize payment session');
         const rpData = await rpRes.json();
         
-        const configRes = await fetch('/api/orders/razorpay-config');
+        const configRes = await fetch(getApiUrl('/api/orders/razorpay-config'));
         const configData = await configRes.json();
         
         const options = {

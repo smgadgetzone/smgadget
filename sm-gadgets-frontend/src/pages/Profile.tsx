@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { Order } from '@/types';
 import { Badge } from '@/components/ui/badge';
+import { getApiUrl } from '@/lib/api';
 
 const Profile = () => {
     const { user, dispatch } = useApp();
@@ -16,7 +17,7 @@ const Profile = () => {
 
     const handleCancelOrder = async (orderId: string) => {
         try {
-            const response = await fetch(`/api/orders/${orderId}/cancel`, {
+            const response = await fetch(getApiUrl(`/api/orders/${orderId}/cancel`), {
                 method: 'PUT'
             });
             if (response.ok) {
@@ -45,7 +46,7 @@ const Profile = () => {
             try {
                 // Fetch orders for this user
                 // Note: Since backend might not have this route perfectly set yet, we wrap in try-catch
-                const response = await fetch(`/api/orders/user/${user.id}`);
+                const response = await fetch(getApiUrl(`/api/orders/user/${user.id}`));
                 if (response.ok) {
                     const data = await response.json();
                     // Map backend order structure to Frontend Order interface

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { Product, CartItem, User, Order } from '@/types';
 import { toast } from '@/hooks/use-toast';
+import { getApiUrl } from '@/lib/api';
 
 interface AppState {
   products: Product[];
@@ -155,7 +156,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const fetchProducts = async () => {
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
-      const response = await fetch('/api/products');
+      const response = await fetch(getApiUrl('/api/products'));
       if (!response.ok) throw new Error('Failed to fetch products');
       const data = await response.json();
       // Map MongoDB document structure to Frontend Product interface

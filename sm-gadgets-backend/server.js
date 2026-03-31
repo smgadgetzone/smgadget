@@ -8,7 +8,23 @@ dotenv.config();
 const app = express();
 
 // middleware
-app.use(cors());
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://smgadget-alpha.vercel.app",
+  "https://smgadget.in",
+  "https://www.smgadget.in"
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true
+}));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 

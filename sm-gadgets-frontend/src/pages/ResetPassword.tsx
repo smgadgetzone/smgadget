@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
+import { getApiUrl } from '@/lib/api';
 
 const ResetPassword = () => {
   const { id, token } = useParams();
@@ -40,7 +41,7 @@ const ResetPassword = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`/api/auth/reset-password/${id}/${token}`, {
+      const response = await fetch(getApiUrl(`/api/auth/reset-password/${id}/${token}`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password }),
