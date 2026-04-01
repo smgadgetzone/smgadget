@@ -21,6 +21,7 @@ export interface Product {
   video?: string; // Base64 video string
   features?: string[]; // Array of feature bullets
   isTrending?: boolean; // Highlighted on homepage
+  quantity?: number; // Stock quantity
 }
 
 export interface CartItem extends Product {

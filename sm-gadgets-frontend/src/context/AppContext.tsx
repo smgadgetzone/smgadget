@@ -178,6 +178,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         color: p.color || '',
         features: p.features || [],
         isTrending: p.isTrending || false,
+        quantity: p.quantity !== undefined ? Number(p.quantity) : 0,
       }));
       dispatch({ type: 'SET_PRODUCTS', payload: mappedProducts });
     } catch (error) {

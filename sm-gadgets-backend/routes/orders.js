@@ -200,7 +200,12 @@ router.post("/", async (req, res) => {
       for (const p of req.body.products) {
         const product = await Product.findById(p.productId);
         if (product) {
-          const newQty = Math.max(0, (product.quantity || 0) - p.quantity);
+          const currentQty = Number(product.quantity || 0);
+          const orderQty = Number(p.quantity || 0);
+          const newQty = Math.max(0, currentQty - orderQty);
+          
+          console.log(`Inventory Update [${product.title}]: ${currentQty} -> ${newQty} (Ordered: ${orderQty})`);
+          
           product.quantity = newQty;
           
           // Logic: Auto-disable if out of stock

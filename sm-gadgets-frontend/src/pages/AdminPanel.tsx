@@ -335,7 +335,7 @@ const AdminPanel = () => {
         color: editingProduct.color,
         features: Array.isArray(editingProduct.features) ? editingProduct.features : (typeof editingProduct.features === 'string' ? (editingProduct.features as string).split('\n').filter(f => f.trim() !== '') : []),
         isTrending: editingProduct.isTrending,
-        quantity: typeof (editingProduct as any).quantity === 'string' ? parseInt((editingProduct as any).quantity) : ((editingProduct as any).quantity || 0)
+        quantity: typeof editingProduct.quantity === 'string' ? parseInt(editingProduct.quantity) : (editingProduct.quantity ?? 0)
       };
 
       const response = await fetch(getApiUrl(`/api/products/${editingProduct.id}`), {
