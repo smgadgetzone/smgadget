@@ -7,6 +7,7 @@ const nodemailer = require("nodemailer");
 const { authMiddleware, adminMiddleware } = require("../middleware/auth");
 const Razorpay = require("razorpay");
 const crypto = require("crypto");
+const Product = require("../models/Product");
 // Email transporter (configured from .env)
 const createTransporter = () => {
   return nodemailer.createTransport({
@@ -115,65 +116,103 @@ router.post("/", async (req, res) => {
         to: req.body.address.email,
         subject: "Order Confirmation - SM Gadgets",
         html: `
-          <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
-            <div style="background: linear-gradient(135deg, #3b82f6 0%, #7c3aed 100%); padding: 30px; text-align: center; border-radius: 12px 12px 0 0;">
-              <h1 style="color: white; margin: 0; font-size: 28px;">SM Gadgets</h1>
-              <p style="color: rgba(255,255,255,0.9); margin: 5px 0 0;">Order Confirmation</p>
+          <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
+            <div style="background: linear-gradient(135deg, #3b82f6 0%, #7c3aed 100%); padding: 35px; text-align: center;">
+              <h1 style="color: white; margin: 0; font-size: 32px; letter-spacing: 1px;">SM GADGETS</h1>
+              <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0; font-size: 16px;">Premium Accessories for your Digital Life</p>
             </div>
-            <div style="padding: 30px; background: #fff; border: 1px solid #e5e7eb;">
-              <h2 style="color: #3b82f6; margin-top: 0;">Thank you, ${req.body.address.name}!</h2>
-              <p>We're excited to confirm your order has been received.</p>
+            <div style="padding: 40px 30px; background: #ffffff;">
+              <h2 style="color: #1e293b; margin-top: 0; font-size: 24px;">Thank you for your order, ${req.body.address.name}!</h2>
+              <p style="font-size: 16px; line-height: 1.6; color: #4b5563;">We've received your order and our team is currently preparing it for dispatch. You'll receive another update once your gadgets are on their way.</p>
               
-              <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                <p style="margin: 5px 0;"><strong>Order ID:</strong> #${savedOrder._id.toString().slice(-6).toUpperCase()}</p>
-                <p style="margin: 5px 0;"><strong>Estimated Delivery:</strong> 2-3 business days</p>
+              <div style="background: #f8fafc; padding: 25px; border-radius: 12px; margin: 30px 0; border: 1px solid #f1f5f9;">
+                <table style="width: 100%;">
+                  <tr>
+                    <td style="color: #64748b; font-size: 14px; text-transform: uppercase; font-weight: bold;">Order ID</td>
+                    <td style="text-align: right; font-weight: bold; color: #1e293b;">#${savedOrder._id.toString().slice(-6).toUpperCase()}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #64748b; font-size: 14px; text-transform: uppercase; font-weight: bold; padding-top: 10px;">Status</td>
+                    <td style="text-align: right; font-weight: bold; color: #10b981; padding-top: 10px;">Confirmed</td>
+                  </tr>
+                  <tr>
+                    <td style="color: #64748b; font-size: 14px; text-transform: uppercase; font-weight: bold; padding-top: 10px;">Delivery Estimate</td>
+                    <td style="text-align: right; font-weight: bold; color: #1e293b; padding-top: 10px;">2-5 Business Days</td>
+                  </tr>
+                </table>
               </div>
               
-              <h3 style="border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">Shipping Address</h3>
-              <p>${req.body.address.address}<br/>
-              ${req.body.address.city}, ${req.body.address.state} - ${req.body.address.pincode}<br/>
-              Phone: ${req.body.address.phone}</p>
+              <h3 style="color: #1e293b; font-size: 18px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 15px;">Shipping Destination</h3>
+              <p style="color: #4b5563; line-height: 1.5; font-size: 15px;">
+                <strong>${req.body.address.name}</strong><br/>
+                ${req.body.address.address}<br/>
+                ${req.body.address.city}, ${req.body.address.state} - ${req.body.address.pincode}<br/>
+                <span style="color: #3b82f6;">Phone: ${req.body.address.phone}</span>
+              </p>
 
-              <h3 style="border-bottom: 2px solid #e5e7eb; padding-bottom: 8px;">Order Details</h3>
+              <h3 style="color: #1e293b; font-size: 18px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-top: 35px; margin-bottom: 15px;">Order Summary</h3>
               <table style="width: 100%; border-collapse: collapse;">
-                <tr style="background-color: #f1f5f9;">
-                  <th style="padding: 12px; text-align: left; border: 1px solid #e2e8f0;">Product</th>
-                  <th style="padding: 12px; text-align: center; border: 1px solid #e2e8f0;">Qty</th>
-                  <th style="padding: 12px; text-align: right; border: 1px solid #e2e8f0;">Price</th>
-                </tr>
-                ${req.body.products.map(p => `
-                  <tr>
-                    <td style="padding: 12px; border: 1px solid #e2e8f0;">${p.name}</td>
-                    <td style="padding: 12px; text-align: center; border: 1px solid #e2e8f0;">${p.quantity}</td>
-                    <td style="padding: 12px; text-align: right; border: 1px solid #e2e8f0;">₹${p.price}</td>
+                <thead>
+                  <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <th style="padding: 12px 0; text-align: left; color: #64748b; font-size: 13px;">ITEM</th>
+                    <th style="padding: 12px 0; text-align: center; color: #64748b; font-size: 13px;">QTY</th>
+                    <th style="padding: 12px 0; text-align: right; color: #64748b; font-size: 13px;">AMOUNT</th>
                   </tr>
-                `).join('')}
+                </thead>
+                <tbody>
+                  ${req.body.products.map(p => `
+                    <tr style="border-bottom: 1px solid #f8fafc;">
+                      <td style="padding: 15px 0; color: #1e293b; font-weight: 500;">${p.name}</td>
+                      <td style="padding: 15px 0; text-align: center; color: #4b5563;">${p.quantity}</td>
+                      <td style="padding: 15px 0; text-align: right; color: #1e293b; font-weight: 600;">₹${p.price}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
               </table>
 
-              <div style="text-align: right; margin-top: 15px; padding: 15px; background: #f0f9ff; border-radius: 8px;">
-                <h3 style="margin: 0; color: #3b82f6;">Total: ₹${req.body.amount}</h3>
+              <div style="margin-top: 25px; padding: 20px; background: #eff6ff; border-radius: 0 0 12px 12px; text-align: right;">
+                <span style="color: #1e3a8a; font-size: 14px; font-weight: bold; margin-right: 15px;">GRAND TOTAL</span>
+                <span style="color: #2563eb; font-size: 24px; font-weight: 800;">₹${req.body.amount.toLocaleString()}</span>
               </div>
               
-              <p style="margin-top: 30px; font-size: 13px; color: #94a3b8; text-align: center;">
-                Questions? Reply to this email or call us at +91 9146381153
-              </p>
+              <div style="margin-top: 40px; text-align: center; border-top: 1px solid #f1f5f9; padding-top: 30px;">
+                <p style="font-size: 14px; color: #64748b; margin-bottom: 20px;">Need help? Our support team is just a call away.</p>
+                <div style="display: inline-block; background: #3b82f6; color: white; padding: 12px 25px; border-radius: 30px; text-decoration: none; font-weight: bold; font-size: 14px;">
+                  Customer Support: +91 9146381153
+                </div>
+              </div>
             </div>
-            <div style="background: #1e293b; padding: 20px; text-align: center; border-radius: 0 0 12px 12px;">
-              <p style="color: #94a3b8; margin: 0; font-size: 12px;">© ${new Date().getFullYear()} SM Gadgets. All rights reserved.</p>
+            <div style="background: #0f172a; padding: 25px; text-align: center;">
+              <p style="color: #94a3b8; margin: 0; font-size: 12px;">You received this because you shopped at SM Gadgets.</p>
+              <p style="color: #94a3b8; margin: 8px 0 0; font-size: 12px;">© ${new Date().getFullYear()} SM Gadgets. All rights reserved.</p>
             </div>
           </div>
         `,
       };
 
-      transporter.sendMail(mailOptions, (error, info) => {
-        if (error) {
-          console.log("Error sending email:", error);
-        } else {
-          console.log("Email sent:", info.response);
-        }
-      });
+      transporter.sendMail(mailOptions);
     } catch (emailErr) {
       console.error("Email setup error:", emailErr);
+    }
+
+    // Decrement stock levels for all products
+    try {
+      for (const p of req.body.products) {
+        const product = await Product.findById(p.productId);
+        if (product) {
+          const newQty = Math.max(0, (product.quantity || 0) - p.quantity);
+          product.quantity = newQty;
+          
+          // Logic: Auto-disable if out of stock
+          if (newQty === 0) {
+            product.inStock = false;
+            product.isTrending = false;
+          }
+          await product.save();
+        }
+      }
+    } catch (stockErr) {
+      console.error("Stock update error:", stockErr);
     }
 
     res.status(201).json(savedOrder);
@@ -214,11 +253,72 @@ router.put("/:id/cancel", async (req, res) => {
 // PUT update order
 router.put("/:id", async (req, res) => {
   try {
+    const oldOrder = await Order.findById(req.params.id);
+    if (!oldOrder) return res.status(404).json("Order not found");
+
     const updatedOrder = await Order.findByIdAndUpdate(
       req.params.id,
       { $set: req.body },
       { new: true }
     );
+
+    // If status changed, send an email to user
+    if (req.body.status && req.body.status !== oldOrder.status) {
+      try {
+        const transporter = createTransporter();
+        const statusMap = {
+          processing: { title: "Processing Your Order", text: "We're carefully picking and packing your items. They'll be ready for shipping soon!" },
+          shipped: { title: "Your Order is on the Way! 🚚", text: "Exciting news! Your SM Gadgets order has been dispatched and is currently in transit to you." },
+          delivered: { title: "Order Delivered! 📦", text: "Yay! Your gadgets have been delivered. We hope you love your new accessories!" },
+          cancelled: { title: "Order Cancelled", text: "We're sorry to inform you that your order has been cancelled. If this was an accident, please try again or contact us." }
+        };
+
+        const updateInfo = statusMap[req.body.status.toLowerCase()] || { title: "Order Update", text: `Your order status has been updated to ${req.body.status}.` };
+
+        const mailOptions = {
+          from: `SM Gadgets <${process.env.EMAIL_USER}>`,
+              to: updatedOrder.address.email,
+              subject: `${updateInfo.title} - #${updatedOrder._id.toString().slice(-6).toUpperCase()}`,
+              html: `
+                <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
+                  <div style="background: linear-gradient(135deg, #3b82f6 0%, #7c3aed 100%); padding: 35px; text-align: center;">
+                    <h1 style="color: white; margin: 0; font-size: 32px; letter-spacing: 1px;">SM GADGETS</h1>
+                  </div>
+                  <div style="padding: 40px 30px; background: #ffffff;">
+                    <h2 style="color: #3b82f6; margin-top: 0; font-size: 24px;">${updateInfo.title}</h2>
+                    <p style="font-size: 16px; line-height: 1.6; color: #4b5563;">Hi ${updatedOrder.address.name},</p>
+                    <p style="font-size: 16px; line-height: 1.6; color: #4b5563;">${updateInfo.text}</p>
+                    
+                    <div style="background: #f8fafc; padding: 25px; border-radius: 12px; margin: 30px 0; border: 1px solid #f1f5f9;">
+                      <table style="width: 100%;">
+                        <tr>
+                          <td style="color: #64748b; font-size: 14px; text-transform: uppercase;">Order ID</td>
+                          <td style="text-align: right; font-weight: bold; color: #1e293b;">#${updatedOrder._id.toString().slice(-6).toUpperCase()}</td>
+                        </tr>
+                        <tr>
+                          <td style="color: #64748b; font-size: 14px; text-transform: uppercase; padding-top: 10px;">New Status</td>
+                          <td style="text-align: right; font-weight: bold; color: #3b82f6; padding-top: 10px; text-transform: capitalize;">${req.body.status}</td>
+                        </tr>
+                      </table>
+                    </div>
+
+                    <div style="text-align: center; margin-top: 40px; padding-top: 30px; border-top: 1px solid #f1f5f9;">
+                      <p style="font-size: 14px; color: #64748b;">Thank you for shopping with us!</p>
+                      <p style="font-size: 14px; color: #94a3b8;">SM Gadgets Team</p>
+                    </div>
+                  </div>
+                  <div style="background: #0f172a; padding: 20px; text-align: center;">
+                    <p style="color: #94a3b8; margin: 0; font-size: 12px;">© ${new Date().getFullYear()} SM Gadgets. All rights reserved.</p>
+                  </div>
+                </div>
+              `
+        };
+        transporter.sendMail(mailOptions);
+      } catch (emailErr) {
+        console.error("Status email error:", emailErr);
+      }
+    }
+
     res.status(200).json(updatedOrder);
   } catch (err) {
     res.status(500).json(err);

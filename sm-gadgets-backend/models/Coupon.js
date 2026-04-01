@@ -20,6 +20,10 @@ const CouponSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    applicableProducts: {
+      type: [String], // Array of Product IDs
+      default: [],
+    },
   },
   { timestamps: true }
 );

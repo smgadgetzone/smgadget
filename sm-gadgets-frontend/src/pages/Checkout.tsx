@@ -71,7 +71,10 @@ const Checkout = () => {
       const res = await fetch(getApiUrl('/api/coupons/verify'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: couponCode })
+        body: JSON.stringify({ 
+          code: couponCode,
+          cartItems: cart.map(item => item.id)
+        })
       });
 
       if (!res.ok) {

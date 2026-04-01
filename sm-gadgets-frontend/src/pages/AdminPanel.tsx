@@ -42,7 +42,8 @@ const AdminPanel = () => {
   const [newCoupon, setNewCoupon] = useState({
     code: '',
     discountType: 'flat',
-    discountValue: ''
+    discountValue: '',
+    applicableProducts: [] as string[]
   });
 
   const getEmptyProduct = () => ({
@@ -60,7 +61,8 @@ const AdminPanel = () => {
     discount: '',
     color: '',
     features: '',
-    isTrending: false
+    isTrending: false,
+    quantity: '10'
   });
 
   const [newProduct, setNewProduct] = useState(getEmptyProduct());
@@ -117,7 +119,8 @@ const AdminPanel = () => {
         body: JSON.stringify({
           code: newCoupon.code.toUpperCase(),
           discountType: newCoupon.discountType,
-          discountValue: Number(newCoupon.discountValue)
+          discountValue: Number(newCoupon.discountValue),
+          applicableProducts: newCoupon.applicableProducts
         })
       });
       if (!res.ok) {
@@ -126,7 +129,7 @@ const AdminPanel = () => {
       }
       toast({ title: "Coupon created", description: "Coupon added successfully." });
       setIsAddingCoupon(false);
-      setNewCoupon({ code: '', discountType: 'flat', discountValue: '' });
+      setNewCoupon({ code: '', discountType: 'flat', discountValue: '', applicableProducts: [] as string[] });
       fetchCoupons();
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -284,7 +287,8 @@ const AdminPanel = () => {
         discount: newProduct.discount ? parseFloat(newProduct.discount) : undefined,
         color: newProduct.color,
         features: newProduct.features ? newProduct.features.split('\n').filter((f: string) => f.trim() !== '') : [],
-        isTrending: newProduct.isTrending
+        isTrending: newProduct.isTrending,
+        quantity: parseInt(newProduct.quantity) || 0
       };
 
       const response = await fetch(getApiUrl('/api/products'), {
@@ -330,7 +334,8 @@ const AdminPanel = () => {
         video: editingProduct.video || '',
         color: editingProduct.color,
         features: Array.isArray(editingProduct.features) ? editingProduct.features : (typeof editingProduct.features === 'string' ? (editingProduct.features as string).split('\n').filter(f => f.trim() !== '') : []),
-        isTrending: editingProduct.isTrending
+        isTrending: editingProduct.isTrending,
+        quantity: typeof (editingProduct as any).quantity === 'string' ? parseInt((editingProduct as any).quantity) : ((editingProduct as any).quantity || 0)
       };
 
       const response = await fetch(getApiUrl(`/api/products/${editingProduct.id}`), {
@@ -562,6 +567,16 @@ const AdminPanel = () => {
                               value={newProduct.discount}
                               onChange={(e) => setNewProduct({ ...newProduct, discount: e.target.value })}
                               className="glass border-white/20"
+                            />
+                          </div>
+                          <div>
+                            <Label>Stock Quantity *</Label>
+                            <Input
+                              type="number"
+                              value={newProduct.quantity}
+                              onChange={(e) => setNewProduct({ ...newProduct, quantity: e.target.value })}
+                              className="glass border-white/20"
+                              placeholder="e.g. 50"
                             />
                           </div>
                         </div>
@@ -923,6 +938,31 @@ const AdminPanel = () => {
                          <Label>Discount Value</Label>
                          <Input type="number" value={newCoupon.discountValue} onChange={e => setNewCoupon({...newCoupon, discountValue: e.target.value})} className="glass border-white/20" placeholder="e.g. 150" />
                        </div>
+                       <div>
+                         <Label>Applicable Products (Optional)</Label>
+                         <div className="mt-2 max-h-40 overflow-y-auto border border-white/10 rounded-md p-2 space-y-1 glass">
+                            {products.map(p => (
+                              <div key={p.id} className="flex items-center gap-2">
+                                <input 
+                                  type="checkbox" 
+                                  id={`coupon-p-${p.id}`}
+                                  checked={newCoupon.applicableProducts.includes(p.id)}
+                                  onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    setNewCoupon(prev => ({
+                                      ...prev,
+                                      applicableProducts: checked 
+                                        ? [...prev.applicableProducts, p.id]
+                                        : prev.applicableProducts.filter(id => id !== p.id)
+                                    }));
+                                  }}
+                                />
+                                <label htmlFor={`coupon-p-${p.id}`} className="text-xs truncate cursor-pointer">{p.name}</label>
+                              </div>
+                            ))}
+                         </div>
+                         <p className="text-[10px] text-muted-foreground mt-1">Leave empty if coupon applies to all products.</p>
+                       </div>
                        <Button className="w-full" onClick={handleAddCoupon}>Save Coupon</Button>
                     </div>
                   </DialogContent>
@@ -1072,6 +1112,15 @@ const AdminPanel = () => {
                         type="number"
                         value={editingProduct.price}
                         onChange={(e) => updateEditingProduct('price', parseFloat(e.target.value))}
+                        className="glass border-white/20"
+                      />
+                    </div>
+                    <div>
+                      <Label>Stock Quantity</Label>
+                      <Input
+                        type="number"
+                        value={(editingProduct as any).quantity || 0}
+                        onChange={(e) => updateEditingProduct('quantity', parseInt(e.target.value))}
                         className="glass border-white/20"
                       />
                     </div>

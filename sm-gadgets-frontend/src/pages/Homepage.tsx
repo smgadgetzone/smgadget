@@ -162,9 +162,9 @@ const Homepage = () => {
                               <Button
                                 size="sm" onClick={(e) => { e.preventDefault(); addToCart(product); window.location.href='/cart'; }}
                                 disabled={!product.inStock}
-                                className="flex-1 h-8 text-xs font-bold rounded-md shadow-sm px-2 min-w-0 truncate"
+                                className="flex-1 h-8 text-[11px] font-bold rounded-md shadow-sm px-1 min-w-0"
                               >
-                                <span className="truncate">Shop Now</span>
+                                <span className="whitespace-nowrap">Shop Now</span>
                               </Button>
                             </div>
                           </div>
@@ -311,9 +311,9 @@ const Homepage = () => {
                                   <Button
                                     size="sm" onClick={(e) => { e.preventDefault(); addToCart(product); window.location.href='/cart'; }}
                                     disabled={!product.inStock}
-                                    className="flex-1 h-8 text-xs font-bold rounded-md shadow-sm px-2 min-w-0 truncate"
+                                    className="flex-1 h-8 text-[11px] font-bold rounded-md shadow-sm px-1 min-w-0"
                                   >
-                                    <span className="truncate">Shop Now</span>
+                                    <span className="whitespace-nowrap">Shop Now</span>
                                   </Button>
                                 </div>
                               </div>

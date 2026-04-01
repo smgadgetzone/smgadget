@@ -40,11 +40,23 @@ router.delete("/:id", authMiddleware, adminMiddleware, async (req, res) => {
 // POST verify coupon (Public)
 router.post("/verify", async (req, res) => {
   try {
-    const { code } = req.body;
+    const { code, cartItems } = req.body;
     const coupon = await Coupon.findOne({ code: { $regex: new RegExp(`^${code.trim()}$`, "i") } });
     
     if (!coupon) {
       return res.status(404).json({ message: "Invalid coupon code." });
+    }
+
+    // Check product applicability if any products are restricted
+    if (coupon.applicableProducts && coupon.applicableProducts.length > 0) {
+      if (!cartItems || !Array.isArray(cartItems) || cartItems.length === 0) {
+         return res.status(400).json({ message: "Coupon is product-specific. Please add items to your cart first." });
+      }
+      
+      const isApplicable = cartItems.some(itemId => coupon.applicableProducts.includes(itemId));
+      if (!isApplicable) {
+        return res.status(400).json({ message: "This coupon is not applicable to the items in your cart." });
+      }
     }
     
     res.status(200).json(coupon);
