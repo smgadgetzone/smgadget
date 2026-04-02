@@ -58,6 +58,10 @@ const OrderSchema = new mongoose.Schema(
     razorpayPaymentId: {
       type: String,
     },
+    paymentMethod: {
+      type: String,
+      default: "COD",
+    },
   },
   { timestamps: true }
 );

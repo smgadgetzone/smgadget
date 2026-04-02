@@ -232,7 +232,7 @@ const Shop = () => {
                               navigate('/cart');
                             }}
                             disabled={!product.inStock}
-                            className="flex-1 shadow-md h-10 text-[13px] font-bold rounded-xl transition-transform hover:scale-[1.02] active:scale-95 bg-primary text-primary-foreground min-w-0 px-1"
+                            className="flex-1 shadow-md h-10 text-[11px] sm:text-[13px] font-bold rounded-xl transition-transform hover:scale-[1.02] active:scale-95 bg-primary text-primary-foreground min-w-0 px-0.5"
                           >
                             <span className="whitespace-nowrap">Shop Now</span>
                           </Button>

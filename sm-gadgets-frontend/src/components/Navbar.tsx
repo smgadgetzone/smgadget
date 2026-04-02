@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useApp } from '@/context/AppContext';
-import logo from '@/assets/logo_new.png';
+import logo from '@/assets/Logo.jpeg';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);

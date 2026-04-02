@@ -47,7 +47,7 @@ const Cart = () => {
   }
 
   const subtotal = getTotalPrice();
-  const shipping = 99; // Flat shipping rate globally
+  const shipping = 59; // Flat shipping rate globally
   const tax = Math.round(subtotal * 0.05); // 5% GST
   const total = subtotal + shipping + tax;
 

@@ -40,7 +40,7 @@ const Checkout = () => {
   };
 
   const subtotal = getTotalPrice();
-  const shipping = 99; // Flat shipping rate
+  const shipping = 59; // Flat shipping rate
 
   // Current selected payment method check
   const isCod = formData.paymentMethod === 'cod';
