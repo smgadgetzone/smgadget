@@ -83,6 +83,12 @@ const ProductSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+
+    // Shipping dimensions for Shiprocket
+    weight: { type: Number, default: 0.5 },   // in kg
+    length: { type: Number, default: 10 },     // in cm
+    breadth: { type: Number, default: 10 },    // in cm
+    height: { type: Number, default: 5 },      // in cm
   },
   { timestamps: true }
 );

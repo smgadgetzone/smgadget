@@ -293,7 +293,7 @@ const ProductDetail = () => {
                     toast({ title: 'Pick a Color', description: 'Please select a color option before adding to cart', variant: 'destructive' });
                     return;
                   }
-                  addToCart(product);
+                  addToCart({ ...product, color: selectedColor || undefined });
                 }}
                 disabled={!product.inStock}
               >
@@ -308,7 +308,7 @@ const ProductDetail = () => {
                     toast({ title: 'Pick a Color', description: 'Please select a color option before shopping', variant: 'destructive' });
                     return;
                   }
-                  addToCart(product);
+                  addToCart({ ...product, color: selectedColor || undefined });
                   navigate('/cart');
                 }}
                 disabled={!product.inStock}

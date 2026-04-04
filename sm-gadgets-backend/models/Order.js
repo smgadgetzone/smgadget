@@ -19,6 +19,7 @@ const OrderSchema = new mongoose.Schema(
           type: Number,
           default: 1,
         },
+        color: String,
       },
     ],
 
@@ -62,6 +63,11 @@ const OrderSchema = new mongoose.Schema(
       type: String,
       default: "COD",
     },
+    // Shiprocket Logistics Tracking
+    shiprocketOrderId: { type: String, default: null },
+    shiprocketShipmentId: { type: String, default: null },
+    awbNumber: { type: String, default: null },
+    shippingStatus: { type: String, default: "pending_sync" },
   },
   { timestamps: true }
 );

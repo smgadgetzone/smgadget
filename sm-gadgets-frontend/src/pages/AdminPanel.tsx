@@ -29,8 +29,12 @@ const ALL_CATEGORIES = [
 const AdminPanel = () => {
   const { products, dispatch, user, cart, fetchProducts } = useApp();
   const [isAddingProduct, setIsAddingProduct] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editingProduct, setEditingProduct] = useState<any | null>(null);
   const [editingOrder, setEditingOrder] = useState<any | null>(null);
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isProcessingLogistics, setIsProcessingLogistics] = useState(false);
+  const [shippingStageFilter, setShippingStageFilter] = useState<string>('all');
   const [allOrders, setAllOrders] = useState<any[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<any[]>([]);
   const [dateFilter, setDateFilter] = useState('');
@@ -62,15 +66,24 @@ const AdminPanel = () => {
     color: '',
     features: '',
     isTrending: false,
-    quantity: '10'
+    quantity: '10',
+    weight: '0.5',
+    length: '10',
+    breadth: '10',
+    height: '5'
   });
 
   const [newProduct, setNewProduct] = useState(getEmptyProduct());
 
   useEffect(() => {
     fetchOrders();
-    fetchCoupons();
   }, []);
+
+  useEffect(() => {
+    if (user?.token) {
+      fetchCoupons();
+    }
+  }, [user?.token]);
 
   useEffect(() => {
     if (dateFilter) {
@@ -165,6 +178,144 @@ const AdminPanel = () => {
       toast({ title: "Error", description: "Failed to update order", variant: "destructive" });
     }
   };
+
+  // ---- SHIPPING COMMAND CENTER HANDLERS ----
+
+  const apiPost = async (endpoint: string, body: any) => {
+    const res = await fetch(getApiUrl(endpoint), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${user?.token}` },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || `Error ${res.status}`);
+    return data;
+  };
+
+  const handleShiprocketSync = async () => {
+    const toSync = selectedOrderIds.filter(id => !allOrders.find(o => o._id === id)?.shiprocketOrderId);
+    if (toSync.length === 0) {
+      toast({ title: 'Nothing to Sync', description: 'Selected orders are already synced or none selected.', variant: 'destructive' });
+      return;
+    }
+    setIsSyncing(true);
+    try {
+      const data = await apiPost('/api/shiprocket/sync-bulk', { orderIds: toSync });
+      const ok = data.results.filter((r: any) => r.status === 'success').length;
+      const skip = data.results.filter((r: any) => r.status === 'skipped').length;
+      const fail = data.results.filter((r: any) => r.status === 'error').length;
+      const awbCount = data.results.filter((r: any) => r.awb).length;
+      toast({
+        title: `✅ Sync Complete`,
+        description: `${ok} synced${awbCount > 0 ? ` (${awbCount} AWB auto-assigned)` : ''} · ${skip} skipped · ${fail} failed`
+      });
+      setSelectedOrderIds([]);
+      fetchOrders();
+    } catch (err: any) {
+      toast({ title: 'Sync Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleBulkAWB = async () => {
+    const eligible = allOrders.filter(o => selectedOrderIds.includes(o._id) && o.shiprocketOrderId && !o.awbNumber);
+    if (eligible.length === 0) {
+      toast({ title: 'No Eligible Orders', description: 'Select synced orders that don\'t have an AWB yet.', variant: 'destructive' });
+      return;
+    }
+    setIsProcessingLogistics(true);
+    try {
+      const data = await apiPost('/api/shiprocket/assign-awb-bulk', { orderIds: eligible.map((o: any) => o._id) });
+      const ok = data.results.filter((r: any) => r.status === 'success').length;
+      const skip = data.results.filter((r: any) => r.status === 'skipped').length;
+      const fail = data.results.filter((r: any) => r.status === 'error').length;
+      toast({
+        title: `🏷️ AWB Assignment Done`,
+        description: `${ok} assigned · ${skip} skipped (already had AWB) · ${fail} failed`
+      });
+      if (fail > 0) {
+        const failMsg = data.results.filter((r: any) => r.status === 'error').map((r: any) => r.message)[0];
+        toast({ title: 'Note', description: failMsg || 'Some AWBs failed — check Shiprocket wallet balance.', variant: 'destructive' });
+      }
+      setSelectedOrderIds([]);
+      fetchOrders();
+    } catch (err: any) {
+      toast({ title: 'AWB Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsProcessingLogistics(false);
+    }
+  };
+
+  const handleBulkLabels = async () => {
+    const eligible = allOrders.filter(o => selectedOrderIds.includes(o._id) && o.awbNumber && o.shiprocketShipmentId);
+    if (eligible.length === 0) {
+      toast({ title: 'No Eligible Orders', description: 'Select orders that have AWB numbers assigned.', variant: 'destructive' });
+      return;
+    }
+    setIsProcessingLogistics(true);
+    try {
+      const shipmentIds = eligible.map((o: any) => o.shiprocketShipmentId);
+      const data = await apiPost('/api/shiprocket/generate-labels', { shipmentIds });
+      if (data.label_url) {
+        window.open(data.label_url, '_blank');
+        toast({ title: `📄 Labels Ready`, description: `${eligible.length} label(s) opened in new tab.` });
+      } else {
+        throw new Error(data.message || 'Label URL not received from Shiprocket');
+      }
+    } catch (err: any) {
+      toast({ title: 'Label Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsProcessingLogistics(false);
+    }
+  };
+
+  const handleBulkPickup = async () => {
+    const eligible = allOrders.filter(o => selectedOrderIds.includes(o._id) && o.awbNumber && o.shiprocketShipmentId);
+    if (eligible.length === 0) {
+      toast({ title: 'No Eligible Orders', description: 'Select orders with AWB numbers to schedule pickup.', variant: 'destructive' });
+      return;
+    }
+    if (!window.confirm(`Schedule courier pickup for ${eligible.length} order(s)?`)) return;
+    setIsProcessingLogistics(true);
+    try {
+      const shipmentIds = eligible.map((o: any) => o.shiprocketShipmentId);
+      await apiPost('/api/shiprocket/schedule-pickup', { shipmentIds });
+      toast({ title: `🚚 Pickup Scheduled`, description: `Courier notified for ${eligible.length} order(s).` });
+      setSelectedOrderIds([]);
+      fetchOrders();
+    } catch (err: any) {
+      toast({ title: 'Pickup Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsProcessingLogistics(false);
+    }
+  };
+
+  // Helpers for the Shipping Command Center
+  const getOrderStage = (order: any): { label: string; color: string; emoji: string } => {
+    if (order.status === 'delivered') return { label: 'Delivered', color: 'text-green-400 bg-green-500/10 border-green-500/30', emoji: '✅' };
+    if (order.status === 'shipped') return { label: 'Shipped', color: 'text-blue-400 bg-blue-500/10 border-blue-500/30', emoji: '🚚' };
+    if (order.awbNumber) return { label: 'AWB Ready', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30', emoji: '🟢' };
+    if (order.shiprocketOrderId) return { label: 'Synced', color: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30', emoji: '🟡' };
+    return { label: 'New', color: 'text-red-400 bg-red-500/10 border-red-500/30', emoji: '🔴' };
+  };
+
+  const getShippingOrders = () => {
+    let orders = [...allOrders];
+    if (shippingStageFilter === 'new') orders = orders.filter(o => !o.shiprocketOrderId);
+    else if (shippingStageFilter === 'synced') orders = orders.filter(o => o.shiprocketOrderId && !o.awbNumber);
+    else if (shippingStageFilter === 'awb') orders = orders.filter(o => o.awbNumber);
+    else if (shippingStageFilter === 'shipped') orders = orders.filter(o => o.status === 'shipped' || o.status === 'delivered');
+    return orders;
+  };
+
+  // Counts for smart action buttons
+  const syncEligible = selectedOrderIds.filter(id => !allOrders.find(o => o._id === id)?.shiprocketOrderId).length;
+  const awbEligible = allOrders.filter(o => selectedOrderIds.includes(o._id) && o.shiprocketOrderId && !o.awbNumber).length;
+  const labelEligible = allOrders.filter(o => selectedOrderIds.includes(o._id) && o.awbNumber).length;
+  const pickupEligible = allOrders.filter(o => selectedOrderIds.includes(o._id) && o.awbNumber).length;
+
+
 
   const handleDeleteOrder = async (id: string) => {
     if (!confirm("Delete this order?")) return;
@@ -288,7 +439,11 @@ const AdminPanel = () => {
         color: newProduct.color,
         features: newProduct.features ? newProduct.features.split('\n').filter((f: string) => f.trim() !== '') : [],
         isTrending: newProduct.isTrending,
-        quantity: parseInt(newProduct.quantity) || 0
+        quantity: parseInt(newProduct.quantity) || 0,
+        weight: parseFloat(newProduct.weight) || 0.5,
+        length: parseFloat(newProduct.length) || 10,
+        breadth: parseFloat(newProduct.breadth) || 10,
+        height: parseFloat(newProduct.height) || 5,
       };
 
       const response = await fetch(getApiUrl('/api/products'), {
@@ -434,6 +589,7 @@ const AdminPanel = () => {
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="products">Products</TabsTrigger>
             <TabsTrigger value="orders">Orders</TabsTrigger>
+            <TabsTrigger value="shipping" className="text-primary font-bold">🚀 Shipping (Shiprocket)</TabsTrigger>
             <TabsTrigger value="coupons">Coupons</TabsTrigger>
           </TabsList>
 
@@ -699,6 +855,54 @@ const AdminPanel = () => {
                             <Label htmlFor="addIsTrending">Is Trending</Label>
                           </div>
                         </div>
+
+                        {/* Shipping Dimensions */}
+                        <div className="border border-white/20 rounded-lg p-4 bg-white/5">
+                          <Label className="text-sm font-semibold text-blue-400 mb-3 block">📦 Shipping Dimensions (for Shiprocket)</Label>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <Label className="text-xs">Weight (kg)</Label>
+                              <Input
+                                type="number" step="0.1" min="0.1"
+                                placeholder="0.5"
+                                value={newProduct.weight}
+                                onChange={(e) => setNewProduct({ ...newProduct, weight: e.target.value })}
+                                className="glass border-white/20"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Length (cm)</Label>
+                              <Input
+                                type="number" min="1"
+                                placeholder="10"
+                                value={newProduct.length}
+                                onChange={(e) => setNewProduct({ ...newProduct, length: e.target.value })}
+                                className="glass border-white/20"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Breadth (cm)</Label>
+                              <Input
+                                type="number" min="1"
+                                placeholder="10"
+                                value={newProduct.breadth}
+                                onChange={(e) => setNewProduct({ ...newProduct, breadth: e.target.value })}
+                                className="glass border-white/20"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Height (cm)</Label>
+                              <Input
+                                type="number" min="1"
+                                placeholder="5"
+                                value={newProduct.height}
+                                onChange={(e) => setNewProduct({ ...newProduct, height: e.target.value })}
+                                className="glass border-white/20"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
                         <div className="flex justify-end space-x-2 pt-2">
                           <Button variant="outline" onClick={() => setIsAddingProduct(false)}>Cancel</Button>
                           <Button onClick={handleAddProduct} disabled={isLoading}>
@@ -802,6 +1006,161 @@ const AdminPanel = () => {
             </div>
           </TabsContent>
 
+          {/* =========== SHIPPING CENTER (SHIPROCKET) =========== */}
+          <TabsContent value="shipping">
+            {/* Stats Bar */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-5">
+              {[
+                { label: 'Total', count: allOrders.length, color: 'bg-white/10', filter: 'all' },
+                { label: '🔴 New', count: allOrders.filter(o => !o.shiprocketOrderId).length, color: 'bg-red-500/10', filter: 'new' },
+                { label: '🟡 Synced', count: allOrders.filter(o => o.shiprocketOrderId && !o.awbNumber).length, color: 'bg-yellow-500/10', filter: 'synced' },
+                { label: '🟢 AWB Ready', count: allOrders.filter(o => o.awbNumber).length, color: 'bg-emerald-500/10', filter: 'awb' },
+                { label: '✅ Done', count: allOrders.filter(o => o.status === 'shipped' || o.status === 'delivered').length, color: 'bg-blue-500/10', filter: 'shipped' },
+              ].map(s => (
+                <button
+                  key={s.filter}
+                  onClick={() => { setShippingStageFilter(s.filter); setSelectedOrderIds([]); }}
+                  className={`rounded-lg p-3 text-left border transition-all ${s.color} ${shippingStageFilter === s.filter ? 'border-primary ring-1 ring-primary' : 'border-white/10 hover:border-white/30'}`}
+                >
+                  <div className="text-xl font-bold">{s.count}</div>
+                  <div className="text-xs text-muted-foreground">{s.label}</div>
+                </button>
+              ))}
+            </div>
+
+            {/* Action Bar */}
+            <div className="flex flex-wrap items-center gap-3 mb-4 p-3 rounded-lg glass border border-white/10">
+              <span className="text-sm text-muted-foreground font-medium">
+                {selectedOrderIds.length > 0 ? `${selectedOrderIds.length} selected` : 'Select orders below'}
+              </span>
+              <div className="flex-1" />
+              <Button
+                onClick={handleShiprocketSync}
+                disabled={isSyncing || syncEligible === 0 || isProcessingLogistics}
+                className="bg-primary hover:bg-primary/90 text-white gap-2"
+                size="sm"
+              >
+                {isSyncing ? '⏳ Syncing...' : `🚀 Sync (${syncEligible})`}
+              </Button>
+              <Button
+                onClick={handleBulkAWB}
+                disabled={awbEligible === 0 || isProcessingLogistics || isSyncing}
+                variant="secondary"
+                className="bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 gap-2"
+                size="sm"
+              >
+                {isProcessingLogistics ? '⏳' : `🏷️ Assign AWB (${awbEligible})`}
+              </Button>
+              <Button
+                onClick={handleBulkLabels}
+                disabled={labelEligible === 0 || isProcessingLogistics || isSyncing}
+                variant="secondary"
+                className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 gap-2"
+                size="sm"
+              >
+                {isProcessingLogistics ? '⏳' : `📄 Labels (${labelEligible})`}
+              </Button>
+              <Button
+                onClick={handleBulkPickup}
+                disabled={pickupEligible === 0 || isProcessingLogistics || isSyncing}
+                variant="secondary"
+                className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 gap-2"
+                size="sm"
+              >
+                {isProcessingLogistics ? '⏳' : `🚚 Pickup (${pickupEligible})`}
+              </Button>
+            </div>
+
+            {/* Orders Table */}
+            <div className="rounded-md border border-white/20 glass overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-white/10 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  <tr>
+                    <th className="p-3 w-10">
+                      <input
+                        type="checkbox"
+                        className="rounded border-white/20 bg-transparent"
+                        checked={selectedOrderIds.length > 0 && selectedOrderIds.length === getShippingOrders().length}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedOrderIds(getShippingOrders().map(o => o._id));
+                          else setSelectedOrderIds([]);
+                        }}
+                      />
+                    </th>
+                    <th className="p-3">Order</th>
+                    <th className="p-3">Customer</th>
+                    <th className="p-3">Items</th>
+                    <th className="p-3">Payment</th>
+                    <th className="p-3">Stage</th>
+                    <th className="p-3">AWB Number</th>
+                  </tr>
+                </thead>
+                <tbody className="text-sm divide-y divide-white/10">
+                  {getShippingOrders().length === 0 ? (
+                    <tr><td colSpan={7} className="p-10 text-center text-muted-foreground">No orders found for this filter.</td></tr>
+                  ) : (
+                    getShippingOrders().map(order => {
+                      const stage = getOrderStage(order);
+                      const isSelected = selectedOrderIds.includes(order._id);
+                      return (
+                        <tr
+                          key={order._id}
+                          className={`hover:bg-white/5 transition-colors cursor-pointer ${isSelected ? 'bg-primary/5' : ''}`}
+                          onClick={() => {
+                            if (isSelected) setSelectedOrderIds(selectedOrderIds.filter(id => id !== order._id));
+                            else setSelectedOrderIds([...selectedOrderIds, order._id]);
+                          }}
+                        >
+                          <td className="p-3" onClick={e => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              className="rounded border-white/20 bg-transparent"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                if (e.target.checked) setSelectedOrderIds([...selectedOrderIds, order._id]);
+                                else setSelectedOrderIds(selectedOrderIds.filter(id => id !== order._id));
+                              }}
+                            />
+                          </td>
+                          <td className="p-3 font-mono text-xs">
+                            <div>#{order._id.slice(-6)}</div>
+                            <div className="text-muted-foreground text-[10px]">{new Date(order.createdAt).toLocaleDateString()}</div>
+                          </td>
+                          <td className="p-3">
+                            <div className="font-medium">{order.address?.name}</div>
+                            <div className="text-[10px] text-muted-foreground">{order.address?.phone}</div>
+                          </td>
+                          <td className="p-3 text-xs">{order.products?.length} item(s)</td>
+                          <td className="p-3">
+                            <Badge variant="outline" className={order.paymentMethod === 'cod' ? 'border-amber-500/40 text-amber-400 text-[10px]' : 'border-blue-500/40 text-blue-400 text-[10px]'}>
+                              {order.paymentMethod === 'cod' ? 'COD' : 'PAID'}
+                            </Badge>
+                          </td>
+                          <td className="p-3">
+                            <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border ${stage.color}`}>
+                              {stage.emoji} {stage.label}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            {order.awbNumber ? (
+                              <span className="font-mono text-[11px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
+                                {order.awbNumber}
+                              </span>
+                            ) : order.shiprocketOrderId ? (
+                              <span className="text-[11px] text-yellow-400/60 italic">Awaiting AWB</span>
+                            ) : (
+                              <span className="text-[11px] text-muted-foreground/50">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </TabsContent>
+
           {/* =========== ORDERS TAB =========== */}
           <TabsContent value="orders">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
@@ -876,8 +1235,10 @@ const AdminPanel = () => {
                               {order.status?.toUpperCase()}
                             </Badge>
                           </td>
-                          <td className="p-4 text-sm capitalize">
-                            {order.paymentMethod || 'COD'}
+                          <td className="p-4 text-sm font-medium">
+                            <Badge variant="outline" className={order.paymentMethod === 'cod' ? 'border-yellow-500/50 text-yellow-500' : 'border-blue-500/50 text-blue-500'}>
+                              {order.paymentMethod === 'cod' ? 'COD' : (order.paymentMethod?.toUpperCase() || 'ONLINE')}
+                            </Badge>
                           </td>
                           <td className="p-4 text-right">
                             <div className="flex justify-end gap-2">
@@ -1043,8 +1404,11 @@ const AdminPanel = () => {
                         <p className="font-semibold mb-1">Products:</p>
                         {editingOrder.products?.map((p: any, i: number) => (
                           <div key={i} className="flex justify-between text-xs">
-                            <span>{p.quantity}x {p.name}</span>
-                            <span>₹{p.price * p.quantity}</span>
+                            <div className="flex flex-col">
+                              <span>{p.quantity}x {p.name}</span>
+                              {p.color && <span className="text-[10px] text-primary italic">Color: {p.color}</span>}
+                            </div>
+                            <span>₹{(p.price * p.quantity).toLocaleString()}</span>
                           </div>
                         ))}
                       </div>

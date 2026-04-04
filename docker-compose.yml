@@ -17,8 +17,9 @@ services:
     container_name: sm-gadgets-frontend
     ports:
       - "8080:8080"
-    # Ensure backend is ready before starting frontend (optional, but good practice)
     depends_on:
       - backend
     environment:
-      - VITE_API_URL=http://backend:5000
+      # Tell Vite's server-side proxy where to forward /api requests (inside Docker network)
+      # Do NOT set VITE_API_URL here - browser must use the Vite proxy at localhost:8080
+      - VITE_PROXY_TARGET=http://backend:5000

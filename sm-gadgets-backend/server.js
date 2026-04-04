@@ -10,6 +10,7 @@ const app = express();
 // middleware
 const allowedOrigins = [
   "http://localhost:5173",
+  "http://localhost:8080",
   "https://smgadget-alpha.vercel.app",
   "https://smgadget.in",
   "https://www.smgadget.in"
@@ -36,6 +37,8 @@ app.use("/api/orders", require("./routes/orders"));
 app.use("/api/contact", require("./routes/contact"));
 app.use("/api/coupons", require("./routes/coupons"));
 app.use("/api/payment", require("./routes/payment"));
+app.use("/api/shiprocket", require("./routes/shiprocket"));
+app.use("/api/webhook", require("./routes/webhook"));
 
 // database
 mongoose

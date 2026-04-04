@@ -40,10 +40,13 @@ const Checkout = () => {
   };
 
   const subtotal = getTotalPrice();
-  const shipping = 59; // Flat shipping rate
+  const COD_DELIVERY_FEE = 59; // Mandatory COD fee to cover RTO risk
 
   // Current selected payment method check
   const isCod = formData.paymentMethod === 'cod';
+
+  // COD has ₹59 mandatory delivery fee; UPI/Online is free
+  const deliveryFee = isCod ? COD_DELIVERY_FEE : 0;
 
   let discount = 0;
   if (appliedCoupon && !isCod) {
@@ -57,7 +60,7 @@ const Checkout = () => {
   discount = Math.min(discount, subtotal); // Prevent negative total
   const discountedSubtotal = subtotal - discount;
   const tax = Math.round(discountedSubtotal * 0.05); // 5% GST
-  const total = discountedSubtotal + shipping + tax;
+  const total = discountedSubtotal + deliveryFee + tax;
 
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) return;
@@ -113,7 +116,8 @@ const Checkout = () => {
           name: item.name,
           price: item.price,
           image: item.image,
-          quantity: item.quantity
+          quantity: item.quantity,
+          color: item.color
         })),
         couponCode: (appliedCoupon && formData.paymentMethod !== 'cod') ? appliedCoupon.code : undefined,
         amount: total,
@@ -569,9 +573,21 @@ const Checkout = () => {
                     </div>
                   )}
                   <div className="flex items-center justify-between">
-                    <span>Shipping</span>
-                    <span>₹{shipping}</span>
+                    <span className="flex items-center gap-1">
+                      Delivery Fee
+                      {isCod && <span className="text-[10px] bg-amber-500/20 text-amber-400 px-1 rounded">COD</span>}
+                    </span>
+                    {isCod ? (
+                      <span className="text-amber-400 font-medium">₹{COD_DELIVERY_FEE}</span>
+                    ) : (
+                      <span className="text-emerald-400 font-medium">FREE 🎉</span>
+                    )}
                   </div>
+                  {isCod && (
+                    <p className="text-[11px] text-amber-400/80 bg-amber-500/10 border border-amber-500/20 rounded p-2">
+                      ⚠️ ₹{COD_DELIVERY_FEE} COD delivery fee is mandatory and non-refundable. This covers return shipping if the order is refused at delivery.
+                    </p>
+                  )}
                   <div className="flex items-center justify-between">
                     <span>GST (5%)</span>
                     <span>₹{tax.toLocaleString()}</span>
