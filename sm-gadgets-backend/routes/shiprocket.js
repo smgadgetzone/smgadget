@@ -7,6 +7,7 @@ const { sendOrderProcessingEmail, sendAWBAssignedEmail } = require("../utils/ema
 
 const SHIPROCKET_EMAIL = process.env.SHIPROCKET_EMAIL;
 const SHIPROCKET_PASSWORD = process.env.SHIPROCKET_PASSWORD;
+const SHIPROCKET_PICKUP_LOCATION = process.env.SHIPROCKET_PICKUP_LOCATION || "Primary";
 
 let cachedToken = null;
 let tokenExpiry = null;
@@ -89,7 +90,7 @@ router.post("/sync-bulk", authMiddleware, adminMiddleware, async (req, res) => {
         const shiprocketOrderData = {
             order_id: String(order._id),
             order_date: new Date(order.createdAt).toISOString().split('T')[0],
-            pickup_location: "Home",
+            pickup_location: SHIPROCKET_PICKUP_LOCATION,
             billing_customer_name: order.address?.name || "Customer",
             billing_last_name: "",
             billing_address: order.address?.address || "Address",
