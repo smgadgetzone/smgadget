@@ -74,9 +74,19 @@ router.post("/", async (req, res) => {
       if (digest !== razorpay_signature) {
         return res.status(400).json({ message: "Invalid payment signature!" });
       }
+      
       // Add payment details to order payload
       req.body.paymentId = razorpay_payment_id;
-      req.body.paymentStatus = "paid";
+      req.body.razorpayOrderId = razorpay_order_id;
+      req.body.razorpayPaymentId = razorpay_payment_id;
+      
+      // If paymentMethod is COD, it means only the shipping fee was paid
+      if (req.body.paymentMethod === 'cod') {
+        req.body.paymentStatus = "shipping_paid";
+      } else {
+        req.body.paymentStatus = "paid";
+      }
+      
       req.body.status = "confirmed";
     } else {
       req.body.paymentStatus = "pending";

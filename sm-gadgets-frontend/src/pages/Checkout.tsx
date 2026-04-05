@@ -41,12 +41,14 @@ const Checkout = () => {
 
   const subtotal = getTotalPrice();
   const COD_DELIVERY_FEE = 59; // Mandatory COD fee to cover RTO risk
+  const ONLINE_DELIVERY_FEE = 59;
+  const FREE_SHIPPING_THRESHOLD = 999;
 
   // Current selected payment method check
   const isCod = formData.paymentMethod === 'cod';
 
-  // COD has ₹59 mandatory delivery fee; UPI/Online is free
-  const deliveryFee = isCod ? COD_DELIVERY_FEE : 0;
+  // COD has ₹59 mandatory; UPI/Online has ₹59 below threshold
+  const deliveryFee = isCod ? COD_DELIVERY_FEE : (subtotal > FREE_SHIPPING_THRESHOLD ? 0 : ONLINE_DELIVERY_FEE);
 
   let discount = 0;
   if (appliedCoupon && !isCod) {
@@ -194,74 +196,71 @@ const Checkout = () => {
       return;
     }
 
-    if (isCod) {
-      setIsProcessing(true);
-      await submitOrder();
-    } else {
-      setIsProcessing(true);
-      const isLoaded = await loadRazorpayScript();
-      if (!isLoaded) {
-        toast({ title: 'Payment Check', description: 'Failed to load Razorpay SDK', variant: 'destructive' });
-        setIsProcessing(false);
-        return;
-      }
+    setIsProcessing(true);
+    const isLoaded = await loadRazorpayScript();
+    if (!isLoaded) {
+      toast({ title: 'Payment Check', description: 'Failed to load Razorpay SDK', variant: 'destructive' });
+      setIsProcessing(false);
+      return;
+    }
 
-      try {
-        const rpRes = await fetch(getApiUrl('/api/orders/create-razorpay-order'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ amount: total })
-        });
-        
-        if (!rpRes.ok) throw new Error('Could not initialize payment session');
-        const rpData = await rpRes.json();
-        
-        const configRes = await fetch(getApiUrl('/api/orders/razorpay-config'));
-        const configData = await configRes.json();
-        
-        const options = {
-          key: configData.key,
-          amount: rpData.amount,
-          currency: rpData.currency,
-          name: 'SM Gadgets',
-          description: 'Secure Online Payment',
-          order_id: rpData.id,
-          handler: async function (response: any) {
-             setIsProcessing(true);
-             const paymentDetails = {
-               razorpay_order_id: response.razorpay_order_id,
-               razorpay_payment_id: response.razorpay_payment_id,
-               razorpay_signature: response.razorpay_signature
-             };
-             await submitOrder(paymentDetails);
-          },
-          prefill: {
-            name: formData.name,
-            email: formData.email,
-            contact: formData.phone
-          },
-          theme: {
-            color: '#10b981'
-          }
-        };
+    try {
+      // For COD, we only charge the mandatory delivery fee upfront
+      const paymentAmount = isCod ? deliveryFee : total;
+      
+      const rpRes = await fetch(getApiUrl('/api/orders/create-razorpay-order'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: paymentAmount })
+      });
+      
+      if (!rpRes.ok) throw new Error('Could not initialize payment session');
+      const rpData = await rpRes.json();
+      
+      const configRes = await fetch(getApiUrl('/api/orders/razorpay-config'));
+      const configData = await configRes.json();
+      
+      const options = {
+        key: configData.key,
+        amount: rpData.amount,
+        currency: rpData.currency,
+        name: 'SM Gadgets',
+        description: isCod ? 'Mandatory Delivery Fee' : 'Secure Online Payment',
+        order_id: rpData.id,
+        handler: async function (response: any) {
+           setIsProcessing(true);
+           const paymentDetails = {
+             razorpay_order_id: response.razorpay_order_id,
+             razorpay_payment_id: response.razorpay_payment_id,
+             razorpay_signature: response.razorpay_signature,
+             amountPaid: paymentAmount // Track how much was paid via Razorpay
+           };
+           await submitOrder(paymentDetails);
+        },
+        prefill: {
+          name: formData.name,
+          email: formData.email,
+          contact: formData.phone
+        },
+        theme: {
+          color: isCod ? '#f59e0b' : '#10b981'
+        }
+      };
 
-        const paymentObject = new (window as any).Razorpay(options);
-        paymentObject.on('payment.failed', function (response: any) {
-            setIsProcessing(false);
-            toast({ title: 'Payment Failed', description: response.error.description, variant: 'destructive' });
-        });
-        paymentObject.open();
+      const paymentObject = new (window as any).Razorpay(options);
+      paymentObject.on('payment.failed', function (response: any) {
+          setIsProcessing(false);
+          toast({ title: 'Payment Failed', description: response.error.description, variant: 'destructive' });
+      });
+      paymentObject.open();
 
-        // Intentionally NOT setting isProcessing(false) here because the modal stays open.
-        // The modal handler will reset it, or the user closes it manually.
-        paymentObject.on('payment.closed', function() {
-            setIsProcessing(false);
-        });
+      paymentObject.on('payment.closed', function() {
+          setIsProcessing(false);
+      });
 
-      } catch (err: any) {
-        setIsProcessing(false);
-        toast({ title: 'Error', description: err.message || 'Could not initialize payment.', variant: 'destructive' });
-      }
+    } catch (err: any) {
+      setIsProcessing(false);
+      toast({ title: 'Error', description: err.message || 'Could not initialize payment.', variant: 'destructive' });
     }
   };
 
@@ -575,14 +574,25 @@ const Checkout = () => {
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-1">
                       Delivery Fee
-                      {isCod && <span className="text-[10px] bg-amber-500/20 text-amber-400 px-1 rounded">COD</span>}
+                      {isCod ? (
+                        <span className="text-[10px] bg-amber-500/20 text-amber-400 px-1 rounded">COD</span>
+                      ) : (
+                        subtotal <= FREE_SHIPPING_THRESHOLD && <span className="text-[10px] bg-blue-500/20 text-blue-400 px-1 rounded">PREPAID</span>
+                      )}
                     </span>
-                    {isCod ? (
-                      <span className="text-amber-400 font-medium">₹{COD_DELIVERY_FEE}</span>
+                    {deliveryFee > 0 ? (
+                      <span className={isCod ? "text-amber-400 font-medium" : "text-foreground font-medium"}>
+                        ₹{deliveryFee}
+                      </span>
                     ) : (
                       <span className="text-emerald-400 font-medium">FREE 🎉</span>
                     )}
                   </div>
+                  {!isCod && subtotal <= FREE_SHIPPING_THRESHOLD && (
+                    <p className="text-[10px] text-blue-400/80 italic">
+                      Add ₹{FREE_SHIPPING_THRESHOLD - subtotal + 1} more for FREE shipping!
+                    </p>
+                  )}
                   {isCod && (
                     <p className="text-[11px] text-amber-400/80 bg-amber-500/10 border border-amber-500/20 rounded p-2">
                       ⚠️ ₹{COD_DELIVERY_FEE} COD delivery fee is mandatory and non-refundable. This covers return shipping if the order is refused at delivery.
