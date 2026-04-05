@@ -160,7 +160,7 @@ const sendAWBAssignedEmail = async (order) => {
         ${infoBox([
     ['Order ID', `#${order._id.toString().slice(-6).toUpperCase()}`, '#1e293b'],
     ['Tracking Number (AWB)', order.awbNumber, '#059669'],
-    ['Estimated Delivery', '2–5 Business Days', '#2563eb']
+    ['Estimated Delivery', '2–3 Business Days', '#2563eb']
   ])}
         ${trackingBox(order.awbNumber)}
         ${addressBlock(order.address)}
