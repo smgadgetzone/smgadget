@@ -1,8 +1,8 @@
 const nodemailer = require("nodemailer");
 
 const createTransporter = () => nodemailer.createTransport({
-    service: "gmail",
-    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+  service: "gmail",
+  auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
 });
 
 // ─── Shared HTML Components ───────────────────────────────────────────────────
@@ -94,17 +94,17 @@ const trackingBox = (awb) => `
  * 1. Order Placed — Full invoice email
  */
 const sendOrderPlacedEmail = async (order) => {
-    const paymentLabel = order.paymentMethod === 'cod' ? 'Cash on Delivery (COD)' : 'Online Payment (Prepaid)';
-    const html = wrap(`
+  const paymentLabel = order.paymentMethod === 'cod' ? 'Cash on Delivery (COD)' : 'Online Payment (Prepaid)';
+  const html = wrap(`
         <h2 style="color:#1e293b;margin-top:0;font-size:22px;">✅ Order Confirmed, ${order.address.name}!</h2>
         <p style="color:#4b5563;line-height:1.7;">Thank you for shopping with <strong>SM Gadgets</strong>. Your order has been received and is being prepared.</p>
         ${infoBox([
-            ['Order ID', `#${order._id.toString().slice(-6).toUpperCase()}`, '#1e293b'],
-            ['Date', new Date(order.createdAt || Date.now()).toLocaleDateString('en-IN', { day:'numeric', month:'long', year:'numeric' }), '#1e293b'],
-            ['Payment Method', paymentLabel, '#1e293b'],
-            ['Payment Status', order.paymentMethod === 'cod' ? 'Pay on Delivery' : '✅ Paid', order.paymentMethod === 'cod' ? '#d97706' : '#059669'],
-            ['Estimated Delivery', '3–7 Business Days', '#2563eb']
-        ])}
+    ['Order ID', `#${order._id.toString().slice(-6).toUpperCase()}`, '#1e293b'],
+    ['Date', new Date(order.createdAt || Date.now()).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }), '#1e293b'],
+    ['Payment Method', paymentLabel, '#1e293b'],
+    ['Payment Status', order.paymentMethod === 'cod' ? 'Pay on Delivery' : '✅ Paid', order.paymentMethod === 'cod' ? '#d97706' : '#059669'],
+    ['Estimated Delivery', '3–7 Business Days', '#2563eb']
+  ])}
         ${addressBlock(order.address)}
         ${itemsTable(order.products)}
         ${totalBox(order.amount)}
@@ -113,26 +113,26 @@ const sendOrderPlacedEmail = async (order) => {
         </p>
     `);
 
-    return createTransporter().sendMail({
-        from: `SM Gadgets <${process.env.EMAIL_USER}>`,
-        to: order.address.email,
-        subject: `✅ Order Confirmed #${order._id.toString().slice(-6).toUpperCase()} — SM Gadgets`,
-        html
-    });
+  return createTransporter().sendMail({
+    from: `SM Gadgets <${process.env.EMAIL_USER}>`,
+    to: order.address.email,
+    subject: `✅ Order Confirmed #${order._id.toString().slice(-6).toUpperCase()} — SM Gadgets`,
+    html
+  });
 };
 
 /**
  * 2. Order Synced / Processing — No AWB yet
  */
 const sendOrderProcessingEmail = async (order) => {
-    const html = wrap(`
+  const html = wrap(`
         <h2 style="color:#1e293b;margin-top:0;font-size:22px;">⚙️ We're Preparing Your Shipment!</h2>
         <p style="color:#4b5563;line-height:1.7;">Hi <strong>${order.address.name}</strong>, great news! Your order has been confirmed and our team has started packing your gadgets.</p>
         ${infoBox([
-            ['Order ID', `#${order._id.toString().slice(-6).toUpperCase()}`, '#1e293b'],
-            ['Status', 'Processing', '#d97706'],
-            ['Estimated Dispatch', 'Within 1–2 Business Days', '#2563eb']
-        ])}
+    ['Order ID', `#${order._id.toString().slice(-6).toUpperCase()}`, '#1e293b'],
+    ['Status', 'Processing', '#d97706'],
+    ['Estimated Dispatch', 'Within 2–3 Business Days', '#2563eb']
+  ])}
         <div style="margin:24px 0;padding:20px;background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;">
             <p style="margin:0;color:#92400e;font-size:14px;">
               🕐 <strong>Your tracking number (AWB) will be shared soon</strong> via email once the courier is assigned. 
@@ -142,44 +142,44 @@ const sendOrderProcessingEmail = async (order) => {
         ${addressBlock(order.address)}
     `);
 
-    return createTransporter().sendMail({
-        from: `SM Gadgets <${process.env.EMAIL_USER}>`,
-        to: order.address.email,
-        subject: `⚙️ Order Processing #${order._id.toString().slice(-6).toUpperCase()} — SM Gadgets`,
-        html
-    });
+  return createTransporter().sendMail({
+    from: `SM Gadgets <${process.env.EMAIL_USER}>`,
+    to: order.address.email,
+    subject: `⚙️ Order Processing #${order._id.toString().slice(-6).toUpperCase()} — SM Gadgets`,
+    html
+  });
 };
 
 /**
  * 3. AWB Assigned — Tracking number email
  */
 const sendAWBAssignedEmail = async (order) => {
-    const html = wrap(`
+  const html = wrap(`
         <h2 style="color:#1e293b;margin-top:0;font-size:22px;">🚀 Your Order Has Been Dispatched!</h2>
         <p style="color:#4b5563;line-height:1.7;">Hi <strong>${order.address.name}</strong>, your SM Gadgets order is on its way! Here are your tracking details:</p>
         ${infoBox([
-            ['Order ID', `#${order._id.toString().slice(-6).toUpperCase()}`, '#1e293b'],
-            ['Tracking Number (AWB)', order.awbNumber, '#059669'],
-            ['Estimated Delivery', '2–5 Business Days', '#2563eb']
-        ])}
+    ['Order ID', `#${order._id.toString().slice(-6).toUpperCase()}`, '#1e293b'],
+    ['Tracking Number (AWB)', order.awbNumber, '#059669'],
+    ['Estimated Delivery', '2–5 Business Days', '#2563eb']
+  ])}
         ${trackingBox(order.awbNumber)}
         ${addressBlock(order.address)}
         ${itemsTable(order.products)}
     `);
 
-    return createTransporter().sendMail({
-        from: `SM Gadgets <${process.env.EMAIL_USER}>`,
-        to: order.address.email,
-        subject: `🚀 Dispatched! Track Your Order #${order._id.toString().slice(-6).toUpperCase()} — SM Gadgets`,
-        html
-    });
+  return createTransporter().sendMail({
+    from: `SM Gadgets <${process.env.EMAIL_USER}>`,
+    to: order.address.email,
+    subject: `🚀 Dispatched! Track Your Order #${order._id.toString().slice(-6).toUpperCase()} — SM Gadgets`,
+    html
+  });
 };
 
 /**
  * 4. Out for Delivery
  */
 const sendOutForDeliveryEmail = async (order) => {
-    const html = wrap(`
+  const html = wrap(`
         <h2 style="color:#1e293b;margin-top:0;font-size:22px;">🛵 Out for Delivery Today!</h2>
         <p style="color:#4b5563;line-height:1.7;">Hi <strong>${order.address.name}</strong>, your order is <strong>out for delivery</strong> and will reach you today! Please keep your phone reachable.</p>
         <div style="margin:24px 0;padding:20px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;">
@@ -191,25 +191,25 @@ const sendOutForDeliveryEmail = async (order) => {
         ${addressBlock(order.address)}
     `);
 
-    return createTransporter().sendMail({
-        from: `SM Gadgets <${process.env.EMAIL_USER}>`,
-        to: order.address.email,
-        subject: `🛵 Out for Delivery! Order #${order._id.toString().slice(-6).toUpperCase()} — SM Gadgets`,
-        html
-    });
+  return createTransporter().sendMail({
+    from: `SM Gadgets <${process.env.EMAIL_USER}>`,
+    to: order.address.email,
+    subject: `🛵 Out for Delivery! Order #${order._id.toString().slice(-6).toUpperCase()} — SM Gadgets`,
+    html
+  });
 };
 
 /**
  * 5. Delivered
  */
 const sendDeliveredEmail = async (order) => {
-    const html = wrap(`
+  const html = wrap(`
         <h2 style="color:#059669;margin-top:0;font-size:22px;">🎉 Your Order Has Been Delivered!</h2>
         <p style="color:#4b5563;line-height:1.7;">Hi <strong>${order.address.name}</strong>, your SM Gadgets order has been successfully delivered! We hope you love your new gadgets. 😍</p>
         ${infoBox([
-            ['Order ID', `#${order._id.toString().slice(-6).toUpperCase()}`, '#1e293b'],
-            ['Status', '✅ Delivered', '#059669']
-        ])}
+    ['Order ID', `#${order._id.toString().slice(-6).toUpperCase()}`, '#1e293b'],
+    ['Status', '✅ Delivered', '#059669']
+  ])}
         ${itemsTable(order.products)}
         <div style="margin:28px 0;padding:22px;background:#f0fdf4;border:1px solid #86efac;border-radius:10px;text-align:center;">
             <p style="margin:0 0 8px;font-size:16px;font-weight:700;color:#166534;">Enjoying your purchase?</p>
@@ -218,41 +218,41 @@ const sendDeliveredEmail = async (order) => {
         <p style="color:#4b5563;font-size:14px;">If you have any issues with your product, please contact us within 24 hours.</p>
     `);
 
-    return createTransporter().sendMail({
-        from: `SM Gadgets <${process.env.EMAIL_USER}>`,
-        to: order.address.email,
-        subject: `🎉 Delivered! Order #${order._id.toString().slice(-6).toUpperCase()} — SM Gadgets`,
-        html
-    });
+  return createTransporter().sendMail({
+    from: `SM Gadgets <${process.env.EMAIL_USER}>`,
+    to: order.address.email,
+    subject: `🎉 Delivered! Order #${order._id.toString().slice(-6).toUpperCase()} — SM Gadgets`,
+    html
+  });
 };
 
 /**
  * 6. Cancelled / RTO
  */
 const sendCancelledEmail = async (order, reason = '') => {
-    const html = wrap(`
+  const html = wrap(`
         <h2 style="color:#dc2626;margin-top:0;font-size:22px;">❌ Order Cancelled</h2>
         <p style="color:#4b5563;line-height:1.7;">Hi <strong>${order.address.name}</strong>, unfortunately your order has been cancelled${reason ? ` (${reason})` : ''}.</p>
         ${infoBox([
-            ['Order ID', `#${order._id.toString().slice(-6).toUpperCase()}`, '#1e293b'],
-            ['Status', 'Cancelled', '#dc2626']
-        ])}
+    ['Order ID', `#${order._id.toString().slice(-6).toUpperCase()}`, '#1e293b'],
+    ['Status', 'Cancelled', '#dc2626']
+  ])}
         <p style="color:#4b5563;font-size:14px;line-height:1.7;">If this was unexpected or you'd like to re-order, please contact our support team.</p>
     `);
 
-    return createTransporter().sendMail({
-        from: `SM Gadgets <${process.env.EMAIL_USER}>`,
-        to: order.address.email,
-        subject: `Order Cancelled #${order._id.toString().slice(-6).toUpperCase()} — SM Gadgets`,
-        html
-    });
+  return createTransporter().sendMail({
+    from: `SM Gadgets <${process.env.EMAIL_USER}>`,
+    to: order.address.email,
+    subject: `Order Cancelled #${order._id.toString().slice(-6).toUpperCase()} — SM Gadgets`,
+    html
+  });
 };
 
 module.exports = {
-    sendOrderPlacedEmail,
-    sendOrderProcessingEmail,
-    sendAWBAssignedEmail,
-    sendOutForDeliveryEmail,
-    sendDeliveredEmail,
-    sendCancelledEmail
+  sendOrderPlacedEmail,
+  sendOrderProcessingEmail,
+  sendAWBAssignedEmail,
+  sendOutForDeliveryEmail,
+  sendDeliveredEmail,
+  sendCancelledEmail
 };
