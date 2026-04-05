@@ -11,7 +11,7 @@ const {
 // POST: Shiprocket Webhook for Tracking Updates
 // Register this URL in Shiprocket Dashboard → Settings → Webhooks:
 // https://sm-gadgets-backend.onrender.com/api/webhook/shiprocket
-router.post("/shiprocket", async (req, res) => {
+router.post("/tracking-update", async (req, res) => {
     try {
         // ── Token Verification (security check) ──────────────────
         const expectedToken = process.env.SHIPROCKET_WEBHOOK_TOKEN;
