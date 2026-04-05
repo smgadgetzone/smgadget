@@ -200,15 +200,22 @@ const AdminPanel = () => {
     }
     setIsSyncing(true);
     try {
-      const data = await apiPost('/api/shiprocket/sync-bulk', { orderIds: toSync });
+      const data = await apiPost('/api/logistics/sync-bulk', { orderIds: toSync });
       const ok = data.results.filter((r: any) => r.status === 'success').length;
       const skip = data.results.filter((r: any) => r.status === 'skipped').length;
       const fail = data.results.filter((r: any) => r.status === 'error').length;
       const awbCount = data.results.filter((r: any) => r.awb).length;
+      
       toast({
-        title: `✅ Sync Complete`,
-        description: `${ok} synced${awbCount > 0 ? ` (${awbCount} AWB auto-assigned)` : ''} · ${skip} skipped · ${fail} failed`
+        title: `Sync Result`,
+        description: `${ok} synced · ${skip} skipped · ${fail} failed`,
+        variant: fail > 0 ? 'destructive' : 'default'
       });
+
+      if (fail > 0) {
+        const firstErr = data.results.find((r: any) => r.status === 'error')?.message;
+        toast({ title: 'Sync Error', description: firstErr || 'Check Render backend logs for details.', variant: 'destructive' });
+      }
       setSelectedOrderIds([]);
       fetchOrders();
     } catch (err: any) {
@@ -226,7 +233,7 @@ const AdminPanel = () => {
     }
     setIsProcessingLogistics(true);
     try {
-      const data = await apiPost('/api/shiprocket/assign-awb-bulk', { orderIds: eligible.map((o: any) => o._id) });
+      const data = await apiPost('/api/logistics/assign-awb-bulk', { orderIds: eligible.map((o: any) => o._id) });
       const ok = data.results.filter((r: any) => r.status === 'success').length;
       const skip = data.results.filter((r: any) => r.status === 'skipped').length;
       const fail = data.results.filter((r: any) => r.status === 'error').length;
@@ -256,7 +263,7 @@ const AdminPanel = () => {
     setIsProcessingLogistics(true);
     try {
       const shipmentIds = eligible.map((o: any) => o.shiprocketShipmentId);
-      const data = await apiPost('/api/shiprocket/generate-labels', { shipmentIds });
+      const data = await apiPost('/api/logistics/generate-labels', { shipmentIds });
       if (data.label_url) {
         window.open(data.label_url, '_blank');
         toast({ title: `📄 Labels Ready`, description: `${eligible.length} label(s) opened in new tab.` });
@@ -280,7 +287,7 @@ const AdminPanel = () => {
     setIsProcessingLogistics(true);
     try {
       const shipmentIds = eligible.map((o: any) => o.shiprocketShipmentId);
-      await apiPost('/api/shiprocket/schedule-pickup', { shipmentIds });
+      await apiPost('/api/logistics/schedule-pickup', { shipmentIds });
       toast({ title: `🚚 Pickup Scheduled`, description: `Courier notified for ${eligible.length} order(s).` });
       setSelectedOrderIds([]);
       fetchOrders();
