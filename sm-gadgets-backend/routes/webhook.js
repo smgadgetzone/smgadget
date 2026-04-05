@@ -1,52 +1,111 @@
 const express = require("express");
 const router = express.Router();
 const Order = require("../models/Order");
+const {
+    sendOutForDeliveryEmail,
+    sendDeliveredEmail,
+    sendCancelledEmail,
+    sendAWBAssignedEmail
+} = require("../utils/emailService");
 
 // POST: Shiprocket Webhook for Tracking Updates
-// Shiprocket sends a POST request here when status changes
+// Register this URL in Shiprocket Dashboard → Settings → Webhooks:
+// https://sm-gadgets-backend.onrender.com/api/webhook/shiprocket
 router.post("/shiprocket", async (req, res) => {
     try {
-        const { order_id, shipment_id, status, awb, courier_name } = req.body;
+        console.log("[Webhook] Shiprocket payload:", JSON.stringify(req.body).slice(0, 300));
 
-        if (!order_id) {
+        const { order_id, shipment_id, current_status, awb_code, courier_name } = req.body;
+
+        // Shiprocket may send different field names depending on event type
+        const status = (current_status || req.body.status || "").toLowerCase().trim();
+        const orderId = order_id || req.body.order_id;
+        const awb = awb_code || req.body.awb;
+
+        if (!orderId) {
+            console.log("[Webhook] No order_id in payload");
             return res.status(400).send("No order ID provided");
         }
 
-        // Find the order in our database
-        // Use shiprocketOrderId or the local _id
-        const order = await Order.findOne({ 
+        // Find the order — shiprocket sends either our DB _id or their own order_id
+        const order = await Order.findOne({
             $or: [
-                { _id: order_id.length === 24 ? order_id : null }, // Check if it's a valid MongoDB ID
-                { shiprocketOrderId: order_id }
+                { _id: (orderId.length === 24 ? orderId : null) },
+                { shiprocketOrderId: String(orderId) }
             ]
         });
 
-        if (order) {
-            // Update the logistics fields
-            order.shippingStatus = status.toLowerCase();
-            if (awb) order.awbNumber = awb;
-            
-            // Map Shiprocket status to our internal order status
-            const statusMap = {
-                "delivered": "delivered",
-                "shipped": "shipped",
-                "canceled": "cancelled",
-                "out for delivery": "shipped",
-                "pickup scheduled": "processing"
-            };
-
-            if (statusMap[status.toLowerCase()]) {
-                order.status = statusMap[status.toLowerCase()];
-            }
-
-            await order.save();
-            console.log(`Shiprocket Webhook: Updated Order ${order_id} to ${status}`);
-            return res.status(200).send("OK");
+        if (!order) {
+            console.log(`[Webhook] Order not found for id: ${orderId}`);
+            return res.status(404).send("Order not found");
         }
 
-        res.status(404).send("Order not found");
+        const prevStatus = order.status;
+        const prevAwb = order.awbNumber;
+
+        // Update AWB if newly provided
+        if (awb && !order.awbNumber) {
+            order.awbNumber = awb;
+        }
+        if (courier_name) order.courierName = courier_name;
+        order.shippingStatus = status;
+
+        // Map Shiprocket status → our internal order status
+        const statusMap = {
+            "delivered":              "delivered",
+            "shipment delivered":     "delivered",
+            "rto delivered":          "cancelled",
+            "rto initiated":          "cancelled",
+            "rto":                    "cancelled",
+            "shipped":                "shipped",
+            "shipment dispatched":    "shipped",
+            "in transit":             "shipped",
+            "out for delivery":       "shipped",
+            "pickup scheduled":       "processing",
+            "pickup complete":        "processing",
+            "pickup queued":          "processing",
+            "awb assigned":           "processing",
+        };
+
+        if (statusMap[status]) {
+            order.status = statusMap[status];
+        }
+
+        await order.save();
+        console.log(`[Webhook] Order ${orderId} → status: "${status}" | internal: "${order.status}"`);
+
+        // ─── Send emails based on status ──────────────────────────
+        // Only send if status actually changed & order has an email
+        if (order.address?.email) {
+
+            // AWB just got assigned via webhook
+            if (awb && !prevAwb && (status === "awb assigned" || status === "pickup scheduled")) {
+                sendAWBAssignedEmail(order).catch(e => console.log("[Webhook Email] AWB:", e.message));
+            }
+
+            // Out for delivery
+            else if (status === "out for delivery") {
+                sendOutForDeliveryEmail(order).catch(e => console.log("[Webhook Email] OFD:", e.message));
+            }
+
+            // Delivered
+            else if (status === "delivered" || status === "shipment delivered") {
+                if (prevStatus !== "delivered") {
+                    sendDeliveredEmail(order).catch(e => console.log("[Webhook Email] Delivered:", e.message));
+                }
+            }
+
+            // RTO / Cancelled
+            else if (status.includes("rto")) {
+                const reason = "Return to Origin — delivery could not be completed.";
+                sendCancelledEmail(order, reason).catch(e => console.log("[Webhook Email] RTO:", e.message));
+            }
+        }
+
+        return res.status(200).send("OK");
+
     } catch (err) {
-        console.error("Shiprocket Webhook Error:", err.message);
+        console.error("[Webhook] Error:", err.message);
         res.status(500).send("Internal Server Error");
     }
 });

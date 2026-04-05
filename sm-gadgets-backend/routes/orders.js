@@ -3,21 +3,11 @@ const router = express.Router();
 const Order = require("../models/Order");
 const User = require("../models/User");
 const Coupon = require("../models/Coupon");
-const nodemailer = require("nodemailer");
 const { authMiddleware, adminMiddleware } = require("../middleware/auth");
 const Razorpay = require("razorpay");
 const crypto = require("crypto");
 const Product = require("../models/Product");
-// Email transporter (configured from .env)
-const createTransporter = () => {
-  return nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
-};
+const { sendOrderPlacedEmail, sendOrderProcessingEmail, sendDeliveredEmail, sendCancelledEmail } = require("../utils/emailService");
 
 // GET orders by user ID
 router.get("/user/:userId", async (req, res) => {
@@ -108,92 +98,8 @@ router.post("/", async (req, res) => {
       }
     }
 
-    // Send confirmation email (non-blocking)
-    try {
-      const transporter = createTransporter();
-      const mailOptions = {
-        from: `SM Gadgets <${process.env.EMAIL_USER}>`,
-        to: req.body.address.email,
-        subject: "Order Confirmation - SM Gadgets",
-        html: `
-          <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
-            <div style="background: linear-gradient(135deg, #3b82f6 0%, #7c3aed 100%); padding: 35px; text-align: center;">
-              <h1 style="color: white; margin: 0; font-size: 32px; letter-spacing: 1px;">SM GADGETS</h1>
-              <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0; font-size: 16px;">Premium Accessories for your Digital Life</p>
-            </div>
-            <div style="padding: 40px 30px; background: #ffffff;">
-              <h2 style="color: #1e293b; margin-top: 0; font-size: 24px;">Thank you for your order, ${req.body.address.name}!</h2>
-              <p style="font-size: 16px; line-height: 1.6; color: #4b5563;">We've received your order and our team is currently preparing it for dispatch. You'll receive another update once your gadgets are on their way.</p>
-              
-              <div style="background: #f8fafc; padding: 25px; border-radius: 12px; margin: 30px 0; border: 1px solid #f1f5f9;">
-                <table style="width: 100%;">
-                  <tr>
-                    <td style="color: #64748b; font-size: 14px; text-transform: uppercase; font-weight: bold;">Order ID</td>
-                    <td style="text-align: right; font-weight: bold; color: #1e293b;">#${savedOrder._id.toString().slice(-6).toUpperCase()}</td>
-                  </tr>
-                  <tr>
-                    <td style="color: #64748b; font-size: 14px; text-transform: uppercase; font-weight: bold; padding-top: 10px;">Status</td>
-                    <td style="text-align: right; font-weight: bold; color: #10b981; padding-top: 10px;">Confirmed</td>
-                  </tr>
-                  <tr>
-                    <td style="color: #64748b; font-size: 14px; text-transform: uppercase; font-weight: bold; padding-top: 10px;">Delivery Estimate</td>
-                    <td style="text-align: right; font-weight: bold; color: #1e293b; padding-top: 10px;">2-5 Business Days</td>
-                  </tr>
-                </table>
-              </div>
-              
-              <h3 style="color: #1e293b; font-size: 18px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 15px;">Shipping Destination</h3>
-              <p style="color: #4b5563; line-height: 1.5; font-size: 15px;">
-                <strong>${req.body.address.name}</strong><br/>
-                ${req.body.address.address}<br/>
-                ${req.body.address.city}, ${req.body.address.state} - ${req.body.address.pincode}<br/>
-                <span style="color: #3b82f6;">Phone: ${req.body.address.phone}</span>
-              </p>
-
-              <h3 style="color: #1e293b; font-size: 18px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-top: 35px; margin-bottom: 15px;">Order Summary</h3>
-              <table style="width: 100%; border-collapse: collapse;">
-                <thead>
-                  <tr style="border-bottom: 1px solid #f1f5f9;">
-                    <th style="padding: 12px 0; text-align: left; color: #64748b; font-size: 13px;">ITEM</th>
-                    <th style="padding: 12px 0; text-align: center; color: #64748b; font-size: 13px;">QTY</th>
-                    <th style="padding: 12px 0; text-align: right; color: #64748b; font-size: 13px;">AMOUNT</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${req.body.products.map(p => `
-                    <tr style="border-bottom: 1px solid #f8fafc;">
-                      <td style="padding: 15px 0; color: #1e293b; font-weight: 500;">${p.name}</td>
-                      <td style="padding: 15px 0; text-align: center; color: #4b5563;">${p.quantity}</td>
-                      <td style="padding: 15px 0; text-align: right; color: #1e293b; font-weight: 600;">₹${p.price}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-
-              <div style="margin-top: 25px; padding: 20px; background: #eff6ff; border-radius: 0 0 12px 12px; text-align: right;">
-                <span style="color: #1e3a8a; font-size: 14px; font-weight: bold; margin-right: 15px;">GRAND TOTAL</span>
-                <span style="color: #2563eb; font-size: 24px; font-weight: 800;">₹${req.body.amount.toLocaleString()}</span>
-              </div>
-              
-              <div style="margin-top: 40px; text-align: center; border-top: 1px solid #f1f5f9; padding-top: 30px;">
-                <p style="font-size: 14px; color: #64748b; margin-bottom: 20px;">Need help? Our support team is just a call away.</p>
-                <div style="display: inline-block; background: #3b82f6; color: white; padding: 12px 25px; border-radius: 30px; text-decoration: none; font-weight: bold; font-size: 14px;">
-                  Customer Support: +91 9146381153
-                </div>
-              </div>
-            </div>
-            <div style="background: #0f172a; padding: 25px; text-align: center;">
-              <p style="color: #94a3b8; margin: 0; font-size: 12px;">You received this because you shopped at SM Gadgets.</p>
-              <p style="color: #94a3b8; margin: 8px 0 0; font-size: 12px;">© ${new Date().getFullYear()} SM Gadgets. All rights reserved.</p>
-            </div>
-          </div>
-        `,
-      };
-
-      transporter.sendMail(mailOptions);
-    } catch (emailErr) {
-      console.error("Email setup error:", emailErr);
-    }
+    // Send full invoice email (non-blocking)
+    sendOrderPlacedEmail(savedOrder).catch(e => console.error("Order placed email error:", e.message));
 
     // Decrement stock levels for all products
     try {
@@ -267,62 +173,16 @@ router.put("/:id", async (req, res) => {
       { new: true }
     );
 
-    // If status changed, send an email to user
-    if (req.body.status && req.body.status !== oldOrder.status) {
-      try {
-        const transporter = createTransporter();
-        const statusMap = {
-          processing: { title: "Processing Your Order", text: "We're carefully picking and packing your items. They'll be ready for shipping soon!" },
-          shipped: { title: "Your Order is on the Way! 🚚", text: "Exciting news! Your SM Gadgets order has been dispatched and is currently in transit to you." },
-          delivered: { title: "Order Delivered! 📦", text: "Yay! Your gadgets have been delivered. We hope you love your new accessories!" },
-          cancelled: { title: "Order Cancelled", text: "We're sorry to inform you that your order has been cancelled. If this was an accident, please try again or contact us." }
-        };
-
-        const updateInfo = statusMap[req.body.status.toLowerCase()] || { title: "Order Update", text: `Your order status has been updated to ${req.body.status}.` };
-
-        const mailOptions = {
-          from: `SM Gadgets <${process.env.EMAIL_USER}>`,
-              to: updatedOrder.address.email,
-              subject: `${updateInfo.title} - #${updatedOrder._id.toString().slice(-6).toUpperCase()}`,
-              html: `
-                <div style="font-family: 'Segoe UI', Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
-                  <div style="background: linear-gradient(135deg, #3b82f6 0%, #7c3aed 100%); padding: 35px; text-align: center;">
-                    <h1 style="color: white; margin: 0; font-size: 32px; letter-spacing: 1px;">SM GADGETS</h1>
-                  </div>
-                  <div style="padding: 40px 30px; background: #ffffff;">
-                    <h2 style="color: #3b82f6; margin-top: 0; font-size: 24px;">${updateInfo.title}</h2>
-                    <p style="font-size: 16px; line-height: 1.6; color: #4b5563;">Hi ${updatedOrder.address.name},</p>
-                    <p style="font-size: 16px; line-height: 1.6; color: #4b5563;">${updateInfo.text}</p>
-                    
-                    <div style="background: #f8fafc; padding: 25px; border-radius: 12px; margin: 30px 0; border: 1px solid #f1f5f9;">
-                      <table style="width: 100%;">
-                        <tr>
-                          <td style="color: #64748b; font-size: 14px; text-transform: uppercase;">Order ID</td>
-                          <td style="text-align: right; font-weight: bold; color: #1e293b;">#${updatedOrder._id.toString().slice(-6).toUpperCase()}</td>
-                        </tr>
-                        <tr>
-                          <td style="color: #64748b; font-size: 14px; text-transform: uppercase; padding-top: 10px;">New Status</td>
-                          <td style="text-align: right; font-weight: bold; color: #3b82f6; padding-top: 10px; text-transform: capitalize;">${req.body.status}</td>
-                        </tr>
-                      </table>
-                    </div>
-
-                    <div style="text-align: center; margin-top: 40px; padding-top: 30px; border-top: 1px solid #f1f5f9;">
-                      <p style="font-size: 14px; color: #64748b;">Thank you for shopping with us!</p>
-                      <p style="font-size: 14px; color: #94a3b8;">SM Gadgets Team</p>
-                    </div>
-                  </div>
-                  <div style="background: #0f172a; padding: 20px; text-align: center;">
-                    <p style="color: #94a3b8; margin: 0; font-size: 12px;">© ${new Date().getFullYear()} SM Gadgets. All rights reserved.</p>
-                  </div>
-                </div>
-              `
-        };
-        transporter.sendMail(mailOptions);
-      } catch (emailErr) {
-        console.error("Status email error:", emailErr);
-      }
+    // Send status-appropriate email (non-blocking)
+    const newStatus = req.body.status.toLowerCase();
+    if (newStatus === 'processing') {
+      sendOrderProcessingEmail(updatedOrder).catch(e => console.error("Processing email error:", e.message));
+    } else if (newStatus === 'delivered') {
+      sendDeliveredEmail(updatedOrder).catch(e => console.error("Delivered email error:", e.message));
+    } else if (newStatus === 'cancelled') {
+      sendCancelledEmail(updatedOrder).catch(e => console.error("Cancelled email error:", e.message));
     }
+    // Note: 'shipped' and 'out for delivery' emails are handled by the Shiprocket webhook
 
     res.status(200).json(updatedOrder);
   } catch (err) {

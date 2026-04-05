@@ -3,6 +3,7 @@ const router = express.Router();
 const axios = require("axios");
 const Order = require("../models/Order");
 const { authMiddleware, adminMiddleware } = require("../middleware/auth");
+const { sendOrderProcessingEmail, sendAWBAssignedEmail } = require("../utils/emailService");
 
 const SHIPROCKET_EMAIL = process.env.SHIPROCKET_EMAIL;
 const SHIPROCKET_PASSWORD = process.env.SHIPROCKET_PASSWORD;
@@ -151,6 +152,8 @@ router.post("/sync-bulk", authMiddleware, adminMiddleware, async (req, res) => {
                 order.shippingStatus = "synced";
                 order.status = "processing";
                 await order.save();
+                // Email: notify customer order is being prepared
+                sendOrderProcessingEmail(order).catch(e => console.log("[Email] Processing email error:", e.message));
                 results.push({
                     id: orderId, status: "success",
                     shiprocketId: response.data.order_id
@@ -197,6 +200,8 @@ router.post("/assign-awb-bulk", authMiddleware, adminMiddleware, async (req, res
             order.awbNumber = awb;
             order.shippingStatus = "awb_assigned";
             await order.save();
+            // Email: send tracking number to customer
+            sendAWBAssignedEmail(order).catch(e => console.log("[Email] AWB email error:", e.message));
             results.push({ id: orderId, status: "success", awb });
         } else {
             results.push({ id: orderId, status: "error", message: "AWB assignment failed — check Shiprocket wallet balance" });
