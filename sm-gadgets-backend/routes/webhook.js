@@ -15,7 +15,7 @@ router.post("/tracking-update", async (req, res) => {
     try {
         // ── Token Verification (security check) ──────────────────
         const expectedToken = process.env.SHIPROCKET_WEBHOOK_TOKEN;
-        const receivedToken = req.headers['x-shiprocket-token'] || req.body.token;
+        const receivedToken = req.headers['x-api-key'] || req.body.token;
         if (expectedToken && receivedToken !== expectedToken) {
             // Return 200 so Shiprocket's test validates the URL
             // but don't process the event
