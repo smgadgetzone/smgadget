@@ -17,8 +17,10 @@ router.post("/shiprocket", async (req, res) => {
         const expectedToken = process.env.SHIPROCKET_WEBHOOK_TOKEN;
         const receivedToken = req.headers['x-shiprocket-token'] || req.body.token;
         if (expectedToken && receivedToken !== expectedToken) {
-            console.log("[Webhook] Invalid token — request rejected");
-            return res.status(401).send("Unauthorized");
+            // Return 200 so Shiprocket's test validates the URL
+            // but don't process the event
+            console.log("[Webhook] Token mismatch — ignoring event");
+            return res.status(200).send("OK");
         }
 
         console.log("[Webhook] Shiprocket payload:", JSON.stringify(req.body).slice(0, 300));
