@@ -89,11 +89,14 @@ router.post("/tracking-update", async (req, res) => {
         // Only send if status actually changed & order has an email
         if (order.address?.email) {
 
-            // AWB just got assigned via webhook
-            if (awb && !prevAwb && (status === "awb assigned" || status === "pickup scheduled")) {
-                sendAWBAssignedEmail(order).catch(e => console.log("[Webhook Email] AWB:", e.message));
+            // ─── AWB Detection ───
+            // If we just got an AWB for the first time, send tracking email
+            if (awb && !prevAwb) {
+                console.log(`[Webhook Email] First AWB for ${orderId}: ${awb}`);
+                sendAWBAssignedEmail(order).catch(e => console.log("[Webhook Email] AWB Error:", e.message));
             }
 
+            // ─── Status Updates ───
             // Out for delivery
             else if (status === "out for delivery") {
                 sendOutForDeliveryEmail(order).catch(e => console.log("[Webhook Email] OFD:", e.message));
