@@ -13,6 +13,14 @@ const {
 // https://sm-gadgets-backend.onrender.com/api/webhook/shiprocket
 router.post("/shiprocket", async (req, res) => {
     try {
+        // ── Token Verification (security check) ──────────────────
+        const expectedToken = process.env.SHIPROCKET_WEBHOOK_TOKEN;
+        const receivedToken = req.headers['x-shiprocket-token'] || req.body.token;
+        if (expectedToken && receivedToken !== expectedToken) {
+            console.log("[Webhook] Invalid token — request rejected");
+            return res.status(401).send("Unauthorized");
+        }
+
         console.log("[Webhook] Shiprocket payload:", JSON.stringify(req.body).slice(0, 300));
 
         const { order_id, shipment_id, current_status, awb_code, courier_name } = req.body;
