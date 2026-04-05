@@ -34,8 +34,8 @@ router.post("/tracking-update", async (req, res) => {
         const awb = awb_code || req.body.awb;
 
         if (!orderId) {
-            console.log("[Webhook] No order_id in payload");
-            return res.status(400).send("No order ID provided");
+            console.log("[Webhook] No order_id in payload — assuming Shiprocket test ping.");
+            return res.status(200).send("OK - Test Ping Received");
         }
 
         // Find the order — shiprocket sends either our DB _id or their own order_id
@@ -47,8 +47,8 @@ router.post("/tracking-update", async (req, res) => {
         });
 
         if (!order) {
-            console.log(`[Webhook] Order not found for id: ${orderId}`);
-            return res.status(404).send("Order not found");
+            console.log(`[Webhook] Order not found for id: ${orderId} — assuming Shiprocket test ping.`);
+            return res.status(200).send("OK - Order not found (Test Ping)");
         }
 
         const prevStatus = order.status;
