@@ -146,20 +146,26 @@ router.post("/sync-bulk", authMiddleware, adminMiddleware, async (req, res) => {
                 { headers: { Authorization: `Bearer ${token}` } }
             );
 
-            if (response.data && response.data.order_id) {
-                order.shiprocketOrderId = response.data.order_id;
+            console.log(`[Shiprocket] Response for ${orderId}:`, JSON.stringify(response.data).slice(0, 500));
+
+            if (response.data && (response.data.order_id || response.data.id)) {
+                order.shiprocketOrderId = response.data.order_id || response.data.id;
                 order.shiprocketShipmentId = response.data.shipment_id;
                 order.shippingStatus = "synced";
                 order.status = "processing";
                 await order.save();
+                
                 // Email: notify customer order is being prepared
                 sendOrderProcessingEmail(order).catch(e => console.log("[Email] Processing email error:", e.message));
+                
                 results.push({
                     id: orderId, status: "success",
-                    shiprocketId: response.data.order_id
+                    shiprocketId: order.shiprocketOrderId
                 });
             } else {
-                results.push({ id: orderId, status: "error", message: "Invalid Shiprocket response" });
+                const msg = response.data?.message || response.data?.errors || "Invalid Shiprocket response (missing ID)";
+                console.log(`[Shiprocket] Sync failed for ${orderId}:`, JSON.stringify(msg));
+                results.push({ id: orderId, status: "error", message: typeof msg === 'string' ? msg : JSON.stringify(msg) });
             }
         } catch (apiErr) {
             const errMsg = apiErr.response?.data?.message || JSON.stringify(apiErr.response?.data) || apiErr.message;
