@@ -155,7 +155,7 @@ const Homepage = () => {
                                 size="sm" variant="secondary"
                                 onClick={(e) => { e.preventDefault(); addToCart(product); }}
                                 disabled={!product.inStock}
-                                className="w-8 shrink-0 rounded-md h-8 text-primary bg-primary/10 hover:bg-primary/20 px-0"
+                                className="hidden sm:flex w-8 shrink-0 rounded-md h-8 text-primary bg-primary/10 hover:bg-primary/20 px-0"
                               >
                                 <ShoppingCart className="h-3.5 w-3.5" />
                               </Button>
@@ -226,7 +226,7 @@ const Homepage = () => {
                                 size="sm" variant="secondary"
                                 onClick={(e) => { e.preventDefault(); addToCart(product); }}
                                 disabled={!product.inStock}
-                                className="w-8 shrink-0 rounded-md h-8 text-primary bg-primary/10 hover:bg-primary/20 px-0"
+                                className="hidden sm:flex w-8 shrink-0 rounded-md h-8 text-primary bg-primary/10 hover:bg-primary/20 px-0"
                               >
                                 <ShoppingCart className="h-3.5 w-3.5" />
                               </Button>
@@ -235,7 +235,7 @@ const Homepage = () => {
                                 disabled={!product.inStock}
                                 className="flex-1 h-8 text-[11px] font-bold rounded-md shadow-sm px-1 min-w-0 bg-purple-600 hover:bg-purple-700 text-white border-none"
                               >
-                                <span className="whitespace-nowrap">Grab Combo</span>
+                                <span className="whitespace-nowrap">Grab Now</span>
                               </Button>
                             </div>
                           </div>
