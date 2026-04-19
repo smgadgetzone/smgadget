@@ -38,8 +38,13 @@ const Shop = () => {
         case 'rating':
           return Number(b.rating) - Number(a.rating);
         case 'name':
-        default:
           return a.name.localeCompare(b.name);
+        default:
+          // Default sort: Priority (Higher first) -> Date (Newest first)
+          if ((b.priority || 0) !== (a.priority || 0)) {
+            return (b.priority || 0) - (a.priority || 0);
+          }
+          return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
       }
     });
 

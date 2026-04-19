@@ -77,6 +77,16 @@ const ProductSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+
+    isCombo: {
+      type: Boolean,
+      default: false,
+    },
+
+    priority: {
+      type: Number,
+      default: 0,
+    },
  
     quantity: {
       type: Number,

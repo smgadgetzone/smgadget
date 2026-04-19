@@ -178,9 +178,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         color: p.color || '',
         features: p.features || [],
         isTrending: p.isTrending || false,
+        isCombo: p.isCombo || false,
+        priority: Number(p.priority) || 0,
         quantity: p.quantity !== undefined ? Number(p.quantity) : 0,
+        createdAt: p.createdAt,
+        updatedAt: p.updatedAt,
       }));
-      dispatch({ type: 'SET_PRODUCTS', payload: mappedProducts });
+
+      // Sort products: Priority (Highest first) -> CreatedAt (Newest first)
+      const sortedProducts = mappedProducts.sort((a: any, b: any) => {
+        if ((b.priority || 0) !== (a.priority || 0)) {
+          return (b.priority || 0) - (a.priority || 0);
+        }
+        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+      });
+
+      dispatch({ type: 'SET_PRODUCTS', payload: sortedProducts });
     } catch (error) {
       console.error('Error fetching products:', error);
       toast({

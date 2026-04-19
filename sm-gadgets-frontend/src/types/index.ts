@@ -21,7 +21,11 @@ export interface Product {
   video?: string; // Base64 video string
   features?: string[]; // Array of feature bullets
   isTrending?: boolean; // Highlighted on homepage
+  isCombo?: boolean; // Exclusive combo deal
+  priority?: number; // Sorting priority (higher = first)
   quantity?: number; // Stock quantity
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CartItem extends Product {

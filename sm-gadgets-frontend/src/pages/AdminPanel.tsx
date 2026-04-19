@@ -66,6 +66,8 @@ const AdminPanel = () => {
     color: '',
     features: '',
     isTrending: false,
+    isCombo: false,
+    priority: '0',
     quantity: '10',
     weight: '0.5',
     length: '10',
@@ -500,6 +502,8 @@ const AdminPanel = () => {
         color: newProduct.color,
         features: newProduct.features ? newProduct.features.split('\n').filter((f: string) => f.trim() !== '') : [],
         isTrending: newProduct.isTrending,
+        isCombo: newProduct.isCombo,
+        priority: parseInt(newProduct.priority) || 0,
         quantity: parseInt(newProduct.quantity) || 0,
         weight: parseFloat(newProduct.weight) || 0.5,
         length: parseFloat(newProduct.length) || 10,
@@ -551,6 +555,8 @@ const AdminPanel = () => {
         color: editingProduct.color,
         features: Array.isArray(editingProduct.features) ? editingProduct.features : (typeof editingProduct.features === 'string' ? (editingProduct.features as string).split('\n').filter(f => f.trim() !== '') : []),
         isTrending: editingProduct.isTrending,
+        isCombo: editingProduct.isCombo,
+        priority: Number(editingProduct.priority) || 0,
         quantity: typeof editingProduct.quantity === 'string' ? parseInt(editingProduct.quantity) : (editingProduct.quantity ?? 0)
       };
 
@@ -565,18 +571,7 @@ const AdminPanel = () => {
 
       if (!response.ok) throw new Error('Failed to update product');
 
-      const updatedProduct = await response.json();
-
-      const mappedUpdatedProduct = {
-        ...updatedProduct,
-        id: updatedProduct._id,
-        image: updatedProduct.img,
-        name: updatedProduct.title,
-        description: updatedProduct.desc,
-        category: (updatedProduct.categories && updatedProduct.categories[0]) || 'chargers'
-      };
-
-      dispatch({ type: 'UPDATE_PRODUCT', payload: mappedUpdatedProduct });
+      await fetchProducts(); // Re-fetch all to ensure sorting is applied correctly
 
       toast({ title: 'Product Updated', description: `${editingProduct.name} has been updated.` });
       setEditingProduct(null);
@@ -894,26 +889,48 @@ const AdminPanel = () => {
                             <p className="text-xs text-green-500 mt-1">✓ Video selected</p>
                           )}
                         </div>
-                        <div className="flex gap-6">
-                          <div className="flex items-center space-x-2">
-                            <input
-                              type="checkbox"
-                              id="addInStock"
-                              checked={newProduct.inStock}
-                              onChange={(e) => setNewProduct({ ...newProduct, inStock: e.target.checked })}
-                              className="rounded w-4 h-4"
-                            />
-                            <Label htmlFor="addInStock">In Stock</Label>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="flex flex-wrap gap-4">
+                            <div className="flex items-center space-x-2">
+                              <input
+                                type="checkbox"
+                                id="addInStock"
+                                checked={newProduct.inStock}
+                                onChange={(e) => setNewProduct({ ...newProduct, inStock: e.target.checked })}
+                                className="rounded w-4 h-4"
+                              />
+                              <Label htmlFor="addInStock">In Stock</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <input
+                                type="checkbox"
+                                id="addIsTrending"
+                                checked={newProduct.isTrending}
+                                onChange={(e) => setNewProduct({ ...newProduct, isTrending: e.target.checked })}
+                                className="rounded w-4 h-4"
+                              />
+                              <Label htmlFor="addIsTrending">Is Trending</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <input
+                                type="checkbox"
+                                id="addIsCombo"
+                                checked={newProduct.isCombo}
+                                onChange={(e) => setNewProduct({ ...newProduct, isCombo: e.target.checked })}
+                                className="rounded w-4 h-4"
+                              />
+                              <Label htmlFor="addIsCombo">Is Combo</Label>
+                            </div>
                           </div>
-                          <div className="flex items-center space-x-2">
-                            <input
-                              type="checkbox"
-                              id="addIsTrending"
-                              checked={newProduct.isTrending}
-                              onChange={(e) => setNewProduct({ ...newProduct, isTrending: e.target.checked })}
-                              className="rounded w-4 h-4"
+                          <div>
+                            <Label className="text-xs">Showcase Priority (Higher = First)</Label>
+                            <Input
+                              type="number"
+                              value={newProduct.priority}
+                              onChange={(e) => setNewProduct({ ...newProduct, priority: e.target.value })}
+                              className="glass border-white/20 h-8"
+                              placeholder="0"
                             />
-                            <Label htmlFor="addIsTrending">Is Trending</Label>
                           </div>
                         </div>
 
@@ -986,6 +1003,7 @@ const AdminPanel = () => {
                           <th className="text-left p-4">Product</th>
                           <th className="text-left p-4">Category</th>
                           <th className="text-left p-4">Price</th>
+                          <th className="text-left p-4">Priority</th>
                           <th className="text-left p-4">Stock</th>
                           <th className="text-left p-4">Rating</th>
                           <th className="text-left p-4">Actions</th>
@@ -1010,7 +1028,11 @@ const AdminPanel = () => {
                                   />
                                   <div>
                                     <div className="font-medium">{product.name}</div>
-                                    <div className="text-xs text-muted-foreground truncate max-w-[200px]">ID: {product.id}</div>
+                                    <div className="flex gap-1 mt-1">
+                                      {product.isTrending && <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30 text-[9px] h-4 px-1">Trending</Badge>}
+                                      {product.isCombo && <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-[9px] h-4 px-1">Combo</Badge>}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground truncate max-w-[200px] mt-1">ID: {product.id}</div>
                                   </div>
                                 </div>
                               </td>
@@ -1026,6 +1048,9 @@ const AdminPanel = () => {
                                     ₹{Number(product.originalPrice).toLocaleString()}
                                   </div>
                                 )}
+                              </td>
+                              <td className="p-4">
+                                <span className="font-mono text-xs font-bold text-primary">{product.priority || 0}</span>
                               </td>
                               <td className="p-4">
                                 <Badge variant={product.inStock ? 'default' : 'secondary'}>
@@ -1637,26 +1662,47 @@ const AdminPanel = () => {
                     </div>
                   </div>
 
-                  <div className="flex gap-6">
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="editInStock"
-                        checked={editingProduct.inStock}
-                        onChange={(e) => updateEditingProduct('inStock', e.target.checked)}
-                        className="rounded w-4 h-4"
-                      />
-                      <Label htmlFor="editInStock">In Stock</Label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-wrap gap-4">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="editInStock"
+                          checked={editingProduct.inStock}
+                          onChange={(e) => updateEditingProduct('inStock', e.target.checked)}
+                          className="rounded w-4 h-4"
+                        />
+                        <Label htmlFor="editInStock">In Stock</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="editIsTrending"
+                          checked={editingProduct.isTrending}
+                          onChange={(e) => updateEditingProduct('isTrending', e.target.checked)}
+                          className="rounded w-4 h-4"
+                        />
+                        <Label htmlFor="editIsTrending">Is Trending</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="editIsCombo"
+                          checked={editingProduct.isCombo}
+                          onChange={(e) => updateEditingProduct('isCombo', e.target.checked)}
+                          className="rounded w-4 h-4"
+                        />
+                        <Label htmlFor="editIsCombo">Is Combo</Label>
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="editIsTrending"
-                        checked={editingProduct.isTrending}
-                        onChange={(e) => updateEditingProduct('isTrending', e.target.checked)}
-                        className="rounded w-4 h-4"
+                    <div>
+                      <Label className="text-xs">Showcase Priority (Higher = First)</Label>
+                      <Input
+                        type="number"
+                        value={editingProduct.priority}
+                        onChange={(e) => updateEditingProduct('priority', parseInt(e.target.value))}
+                        className="glass border-white/20 h-8"
                       />
-                      <Label htmlFor="editIsTrending">Is Trending</Label>
                     </div>
                   </div>
 
