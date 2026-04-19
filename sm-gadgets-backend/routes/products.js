@@ -29,9 +29,15 @@ router.post("/", authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const newProduct = new Product(req.body);
     const savedProduct = await newProduct.save();
+    console.log(`[Product Add] Successfully added: ${newProduct.title}`);
     res.status(201).json(savedProduct);
   } catch (err) {
-    res.status(500).json(err);
+    console.error(`[Product Add Error]:`, err);
+    // Return specific error message if it exists
+    res.status(500).json({ 
+      message: err.message || "Internal Server Error",
+      error: err.name === 'ValidationError' ? err.errors : err
+    });
   }
 });
 
@@ -45,7 +51,11 @@ router.put("/:id", authMiddleware, adminMiddleware, async (req, res) => {
     );
     res.status(200).json(updatedProduct);
   } catch (err) {
-    res.status(500).json(err);
+    console.error(`[Product Update Error]:`, err);
+    res.status(500).json({ 
+      message: err.message || "Internal Server Error",
+      error: err.name === 'ValidationError' ? err.errors : err
+    });
   }
 });
 

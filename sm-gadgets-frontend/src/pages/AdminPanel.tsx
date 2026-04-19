@@ -376,39 +376,93 @@ const AdminPanel = () => {
     );
   }
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, isEditing: boolean = false) => {
+  // Helper function to compress images before uploading
+  const compressImage = (base64Str: string, maxWidth = 1280, maxHeight = 1280): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = base64Str;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height *= maxWidth / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width *= maxHeight / height;
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        // Using 0.8 quality for high resolution but much smaller file size
+        resolve(canvas.toDataURL('image/jpeg', 0.8));
+      };
+      img.onerror = () => resolve(base64Str); // Fallback to original if error
+    });
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, isEditing: boolean = false) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      const readers: Promise<string>[] = [];
-      Array.from(files).forEach(file => {
-        readers.push(new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(file);
-        }));
-      });
+      setIsLoading(true); // Show loader while compressing
+      try {
+        const readers: Promise<string>[] = [];
+        Array.from(files).forEach(file => {
+          readers.push(new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(file);
+          }));
+        });
 
-      Promise.all(readers).then(base64Strings => {
+        const originalBase64Strings = await Promise.all(readers);
+        // Compress each image
+        const compressedStrings = await Promise.all(
+          originalBase64Strings.map(str => compressImage(str))
+        );
+
         if (isEditing && editingProduct) {
           setEditingProduct({
             ...editingProduct,
-            image: base64Strings[0],
-            images: base64Strings
+            image: compressedStrings[0],
+            images: compressedStrings
           } as any);
         } else {
           setNewProduct({
             ...newProduct,
-            image: base64Strings[0],
-            images: base64Strings
+            image: compressedStrings[0],
+            images: compressedStrings
           });
         }
-      });
+      } catch (err) {
+        toast({ title: 'Upload Error', description: 'Failed to process images.', variant: 'destructive' });
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
   const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>, isEditing: boolean = false) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Check file size (Warn if > 15MB which is close to MongoDB's 16MB limit)
+      if (file.size > 15 * 1024 * 1024) {
+        toast({ 
+          title: 'Video too large', 
+          description: 'Please upload a video smaller than 15MB. Larger videos will fail to save.', 
+          variant: 'destructive' 
+        });
+        return;
+      }
+
       const reader = new FileReader();
       reader.onloadend = () => {
         if (isEditing && editingProduct) {
