@@ -249,24 +249,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
-  // Save data to localStorage
+  // Save data to localStorage safely
   useEffect(() => {
-    localStorage.setItem('sm-gadgets-cart', JSON.stringify(state.cart));
+    try {
+      localStorage.setItem('sm-gadgets-cart', JSON.stringify(state.cart));
+    } catch (e) {
+      console.error('Failed to save cart to storage:', e);
+    }
   }, [state.cart]);
 
   useEffect(() => {
-    localStorage.setItem('sm-gadgets-products', JSON.stringify(state.products));
+    try {
+      // Strip large image data from cache to save storage quota
+      // Products will load images from native browser cache or fetch
+      const lightProducts = state.products.map(p => ({
+        ...p,
+        image: p.image?.startsWith('data:image') ? '' : p.image,
+        images: [] // Don't cache full galleries in localStorage
+      }));
+      localStorage.setItem('sm-gadgets-products', JSON.stringify(lightProducts));
+    } catch (e) {
+      console.warn('Storage quota exceeded for products. Only live data will be used.');
+    }
   }, [state.products]);
 
   useEffect(() => {
-    localStorage.setItem('sm-gadgets-wishlist', JSON.stringify(state.wishlist));
+    try {
+      localStorage.setItem('sm-gadgets-wishlist', JSON.stringify(state.wishlist));
+    } catch (e) {
+      console.error('Failed to save wishlist to storage:', e);
+    }
   }, [state.wishlist]);
 
   useEffect(() => {
-    if (state.user) {
-      localStorage.setItem('sm-gadgets-user', JSON.stringify(state.user));
-    } else {
-      localStorage.removeItem('sm-gadgets-user');
+    try {
+      if (state.user) {
+        localStorage.setItem('sm-gadgets-user', JSON.stringify(state.user));
+      } else {
+        localStorage.removeItem('sm-gadgets-user');
+      }
+    } catch (e) {
+      console.error('Failed to save user session:', e);
     }
   }, [state.user]);
 
