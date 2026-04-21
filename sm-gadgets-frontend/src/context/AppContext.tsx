@@ -14,6 +14,7 @@ interface AppState {
 
 type AppAction =
   | { type: 'SET_PRODUCTS'; payload: Product[] }
+  | { type: 'HYDRATE_PRODUCTS'; payload: Product[] }
   | { type: 'ADD_TO_CART'; payload: Product }
   | { type: 'REMOVE_FROM_CART'; payload: string }
   | { type: 'UPDATE_CART_QUANTITY'; payload: { id: string; quantity: number } }
@@ -42,6 +43,9 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
   switch (action.type) {
     case 'SET_PRODUCTS':
       return { ...state, products: action.payload, isLoading: false };
+
+    case 'HYDRATE_PRODUCTS':
+      return { ...state, products: action.payload };
 
     case 'ADD_TO_CART': {
       const existingItem = state.cart.find(item => item.id === action.payload.id);
@@ -216,7 +220,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (savedProducts) {
       try {
         const products = JSON.parse(savedProducts);
-        dispatch({ type: 'SET_PRODUCTS', payload: products });
+        // Hydrate without stopping the loading state
+        dispatch({ type: 'HYDRATE_PRODUCTS', payload: products });
       } catch (e) { /* ignore corrupt data */ }
     }
 
