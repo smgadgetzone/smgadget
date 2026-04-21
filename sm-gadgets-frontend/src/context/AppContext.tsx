@@ -207,12 +207,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Load data from localStorage and fetch products
   useEffect(() => {
-    fetchProducts();
-
     // Use SET_CART and SET_WISHLIST to avoid duplication bug
+    const savedProducts = localStorage.getItem('sm-gadgets-products');
     const savedCart = localStorage.getItem('sm-gadgets-cart');
     const savedWishlist = localStorage.getItem('sm-gadgets-wishlist');
     const savedUser = localStorage.getItem('sm-gadgets-user');
+
+    if (savedProducts) {
+      try {
+        const products = JSON.parse(savedProducts);
+        dispatch({ type: 'SET_PRODUCTS', payload: products });
+      } catch (e) { /* ignore corrupt data */ }
+    }
+
+    fetchProducts();
 
     if (savedCart) {
       try {
@@ -240,6 +248,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem('sm-gadgets-cart', JSON.stringify(state.cart));
   }, [state.cart]);
+
+  useEffect(() => {
+    localStorage.setItem('sm-gadgets-products', JSON.stringify(state.products));
+  }, [state.products]);
 
   useEffect(() => {
     localStorage.setItem('sm-gadgets-wishlist', JSON.stringify(state.wishlist));

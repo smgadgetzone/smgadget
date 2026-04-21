@@ -14,11 +14,12 @@ import {
 import { useApp } from '@/context/AppContext';
 import heroBg from '@/assets/hero_bg.png';
 import QuickViewModal from '@/components/QuickViewModal';
+import ProductSkeleton from '@/components/ProductSkeleton';
 
 import { Product } from '@/types/index';
 
 const Homepage = () => {
-  const { products, addToCart } = useApp();
+  const { products, addToCart, isLoading } = useApp();
   const [quickViewProduct, setQuickViewProduct] = React.useState<Product | null>(null);
   const featuredProducts = products.filter(product => product.featured).slice(0, 3);
 
@@ -110,7 +111,7 @@ const Homepage = () => {
       </section>
 
       {/* Trending Products Section */}
-      {products.some(p => p.isTrending) && (
+      {(products.some(p => p.isTrending) || (isLoading && products.length === 0)) && (
         <section className="py-12 px-4 bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-transparent relative overflow-hidden">
           <div className="absolute inset-0 border-y border-amber-500/20" />
           <div className="container mx-auto relative z-10">
@@ -124,63 +125,69 @@ const Homepage = () => {
               </div>
             </div>
             
-            <Carousel opts={{ align: "start" }} className="w-full">
-              <CarouselContent className="-ml-2 md:-ml-4">
-                {products.filter(p => p.isTrending).map((product) => (
-                  <CarouselItem key={product.id} className="pl-2 md:pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4">
-                    <Link to={`/product/${product.id}`} className="group h-full block">
-                      <Card className="product-card border-orange-500/20 shadow-glow-sm h-full hover:border-orange-500/50 transition-colors flex flex-col bg-background/50 backdrop-blur-sm">
-                        <div className="relative overflow-hidden rounded-t-lg aspect-square">
-                          <img src={product.image} alt={product.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                          {product.discount && (
-                            <Badge className="absolute top-2 left-2 bg-destructive text-[10px] px-1.5 h-5">{product.discount}%</Badge>
-                          )}
-                          <Button variant="secondary" size="icon" className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-md rounded-full bg-white/90 hover:bg-white text-foreground h-8 w-8" onClick={(e) => { e.preventDefault(); setQuickViewProduct(product); }}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <CardContent className="p-3 flex flex-col flex-1">
-                          <h3 className="font-medium text-sm mb-1 line-clamp-2 group-hover:text-primary transition-colors h-[40px]">
-                            {product.name}
-                          </h3>
-                          <div className="flex flex-col gap-3 mt-auto pt-3 border-t border-border/50">
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-bold text-primary">₹{product.price.toLocaleString()}</span>
-                              {product.originalPrice && (
-                                <span className="text-[10px] text-muted-foreground line-through">₹{product.originalPrice.toLocaleString()}</span>
-                              )}
-                            </div>
-                            <div className="flex gap-2 mt-1 w-full">
-                              <Button 
-                                size="sm" variant="secondary"
-                                onClick={(e) => { e.preventDefault(); addToCart(product); }}
-                                disabled={!product.inStock}
-                                className="hidden sm:flex w-8 shrink-0 rounded-md h-8 text-primary bg-primary/10 hover:bg-primary/20 px-0"
-                              >
-                                <ShoppingCart className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                size="sm" onClick={(e) => { e.preventDefault(); addToCart(product); window.location.href='/cart'; }}
-                                disabled={!product.inStock}
-                                className="flex-1 h-8 text-[11px] font-bold rounded-md shadow-sm px-1 min-w-0"
-                              >
-                                <span className="whitespace-nowrap">Shop Now</span>
-                              </Button>
-                            </div>
+            {isLoading && products.length === 0 ? (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[1, 2, 3, 4].map(i => <ProductSkeleton key={i} />)}
+              </div>
+            ) : (
+              <Carousel opts={{ align: "start" }} className="w-full">
+                <CarouselContent className="-ml-2 md:-ml-4">
+                  {products.filter(p => p.isTrending).map((product) => (
+                    <CarouselItem key={product.id} className="pl-2 md:pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4">
+                      <Link to={`/product/${product.id}`} className="group h-full block">
+                        <Card className="product-card border-orange-500/20 shadow-glow-sm h-full hover:border-orange-500/50 transition-colors flex flex-col bg-background/50 backdrop-blur-sm">
+                          <div className="relative overflow-hidden rounded-t-lg aspect-square">
+                            <img src={product.image} alt={product.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                            {product.discount && (
+                              <Badge className="absolute top-2 left-2 bg-destructive text-[10px] px-1.5 h-5">{product.discount}%</Badge>
+                            )}
+                            <Button variant="secondary" size="icon" className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-md rounded-full bg-white/90 hover:bg-white text-foreground h-8 w-8" onClick={(e) => { e.preventDefault(); setQuickViewProduct(product); }}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
                           </div>
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-            </Carousel>
+                          <CardContent className="p-3 flex flex-col flex-1">
+                            <h3 className="font-medium text-sm mb-1 line-clamp-2 group-hover:text-primary transition-colors h-[40px]">
+                              {product.name}
+                            </h3>
+                            <div className="flex flex-col gap-3 mt-auto pt-3 border-t border-border/50">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-bold text-primary">₹{product.price.toLocaleString()}</span>
+                                {product.originalPrice && (
+                                  <span className="text-[10px] text-muted-foreground line-through">₹{product.originalPrice.toLocaleString()}</span>
+                                )}
+                              </div>
+                              <div className="flex gap-2 mt-1 w-full">
+                                <Button 
+                                  size="sm" variant="secondary"
+                                  onClick={(e) => { e.preventDefault(); addToCart(product); }}
+                                  disabled={!product.inStock}
+                                  className="hidden sm:flex w-8 shrink-0 rounded-md h-8 text-primary bg-primary/10 hover:bg-primary/20 px-0"
+                                >
+                                  <ShoppingCart className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  size="sm" onClick={(e) => { e.preventDefault(); addToCart(product); window.location.href='/cart'; }}
+                                  disabled={!product.inStock}
+                                  className="flex-1 h-8 text-[11px] font-bold rounded-md shadow-sm px-1 min-w-0"
+                                >
+                                  <span className="whitespace-nowrap">Shop Now</span>
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </Link>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+              </Carousel>
+            )}
           </div>
         </section>
       )}
 
       {/* Exclusive Combos Section */}
-      {products.some(p => p.isCombo) && (
+      {(products.some(p => p.isCombo) || (isLoading && products.length === 0)) && (
         <section className="py-12 px-4 bg-gradient-to-r from-purple-500/10 via-indigo-500/5 to-transparent relative overflow-hidden">
           <div className="absolute inset-0 border-y border-purple-500/20" />
           <div className="container mx-auto relative z-10">
@@ -194,58 +201,64 @@ const Homepage = () => {
               </div>
             </div>
             
-            <Carousel opts={{ align: "start" }} className="w-full">
-              <CarouselContent className="-ml-2 md:-ml-4">
-                {products.filter(p => p.isCombo).map((product) => (
-                  <CarouselItem key={product.id} className="pl-2 md:pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4">
-                    <Link to={`/product/${product.id}`} className="group h-full block">
-                      <Card className="product-card border-purple-500/20 shadow-lg h-full hover:border-purple-500/50 transition-all duration-300 flex flex-col bg-background/50 backdrop-blur-sm">
-                        <div className="relative overflow-hidden rounded-t-lg aspect-square">
-                          <img src={product.image} alt={product.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                          <Badge className="absolute top-2 right-2 bg-purple-600 text-[9px] px-1.5 h-5 animate-pulse shadow-glow">COMBO DEAL</Badge>
-                          {product.discount && (
-                            <Badge className="absolute top-2 left-2 bg-destructive text-[10px] px-1.5 h-5">{product.discount}% OFF</Badge>
-                          )}
-                          <Button variant="secondary" size="icon" className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-md rounded-full bg-white/90 hover:bg-white text-foreground h-8 w-8" onClick={(e) => { e.preventDefault(); setQuickViewProduct(product); }}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <CardContent className="p-3 flex flex-col flex-1">
-                          <h3 className="font-medium text-sm mb-1 line-clamp-2 group-hover:text-primary transition-colors h-[40px]">
-                            {product.name}
-                          </h3>
-                          <div className="flex flex-col gap-3 mt-auto pt-3 border-t border-border/50">
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-bold text-primary">₹{product.price.toLocaleString()}</span>
-                              {product.originalPrice && (
-                                <span className="text-[10px] text-muted-foreground line-through">₹{product.originalPrice.toLocaleString()}</span>
-                              )}
-                            </div>
-                            <div className="flex gap-2 mt-1 w-full">
-                              <Button 
-                                size="sm" variant="secondary"
-                                onClick={(e) => { e.preventDefault(); addToCart(product); }}
-                                disabled={!product.inStock}
-                                className="hidden sm:flex w-8 shrink-0 rounded-md h-8 text-primary bg-primary/10 hover:bg-primary/20 px-0"
-                              >
-                                <ShoppingCart className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                size="sm" onClick={(e) => { e.preventDefault(); addToCart(product); window.location.href='/cart'; }}
-                                disabled={!product.inStock}
-                                className="flex-1 h-8 text-[11px] font-bold rounded-md shadow-sm px-1 min-w-0 bg-purple-600 hover:bg-purple-700 text-white border-none"
-                              >
-                                <span className="whitespace-nowrap">Grab Now</span>
-                              </Button>
-                            </div>
+            {isLoading && products.length === 0 ? (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[1, 2, 3, 4].map(i => <ProductSkeleton key={i} />)}
+              </div>
+            ) : (
+              <Carousel opts={{ align: "start" }} className="w-full">
+                <CarouselContent className="-ml-2 md:-ml-4">
+                  {products.filter(p => p.isCombo).map((product) => (
+                    <CarouselItem key={product.id} className="pl-2 md:pl-4 basis-1/2 md:basis-1/3 lg:basis-1/4">
+                      <Link to={`/product/${product.id}`} className="group h-full block">
+                        <Card className="product-card border-purple-500/20 shadow-lg h-full hover:border-purple-500/50 transition-all duration-300 flex flex-col bg-background/50 backdrop-blur-sm">
+                          <div className="relative overflow-hidden rounded-t-lg aspect-square">
+                            <img src={product.image} alt={product.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                            <Badge className="absolute top-2 right-2 bg-purple-600 text-[9px] px-1.5 h-5 animate-pulse shadow-glow">COMBO DEAL</Badge>
+                            {product.discount && (
+                              <Badge className="absolute top-2 left-2 bg-destructive text-[10px] px-1.5 h-5">{product.discount}% OFF</Badge>
+                            )}
+                            <Button variant="secondary" size="icon" className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-md rounded-full bg-white/90 hover:bg-white text-foreground h-8 w-8" onClick={(e) => { e.preventDefault(); setQuickViewProduct(product); }}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
                           </div>
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-            </Carousel>
+                          <CardContent className="p-3 flex flex-col flex-1">
+                            <h3 className="font-medium text-sm mb-1 line-clamp-2 group-hover:text-primary transition-colors h-[40px]">
+                              {product.name}
+                            </h3>
+                            <div className="flex flex-col gap-3 mt-auto pt-3 border-t border-border/50">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-bold text-primary">₹{product.price.toLocaleString()}</span>
+                                {product.originalPrice && (
+                                  <span className="text-[10px] text-muted-foreground line-through">₹{product.originalPrice.toLocaleString()}</span>
+                                )}
+                              </div>
+                              <div className="flex gap-2 mt-1 w-full">
+                                <Button 
+                                  size="sm" variant="secondary"
+                                  onClick={(e) => { e.preventDefault(); addToCart(product); }}
+                                  disabled={!product.inStock}
+                                  className="hidden sm:flex w-8 shrink-0 rounded-md h-8 text-primary bg-primary/10 hover:bg-primary/20 px-0"
+                                >
+                                  <ShoppingCart className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  size="sm" onClick={(e) => { e.preventDefault(); addToCart(product); window.location.href='/cart'; }}
+                                  disabled={!product.inStock}
+                                  className="flex-1 h-8 text-[11px] font-bold rounded-md shadow-sm px-1 min-w-0 bg-purple-600 hover:bg-purple-700 text-white border-none"
+                                >
+                                  <span className="whitespace-nowrap">Grab Now</span>
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </Link>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+              </Carousel>
+            )}
           </div>
         </section>
       )}

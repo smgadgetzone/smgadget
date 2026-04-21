@@ -7,10 +7,11 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useApp } from '@/context/AppContext';
 import QuickViewModal from '@/components/QuickViewModal';
+import ProductSkeleton from '@/components/ProductSkeleton';
 import { Product } from '@/types/index';
 
 const Shop = () => {
-  const { products, addToCart, addToWishlist, wishlist } = useApp();
+  const { products, addToCart, addToWishlist, wishlist, isLoading } = useApp();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -111,13 +112,22 @@ const Shop = () => {
 
             {/* Products Grid */}
             {filteredProducts.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-6xl mb-4">📱</div>
-                <h3 className="text-xl font-semibold mb-2">No products found</h3>
-                <p className="text-muted-foreground">
-                  Try adjusting your filters or search terms
-                </p>
-              </div>
+              isLoading ? (
+                <div className={`grid gap-4 md:gap-6 ${viewMode === 'grid'
+                  ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+                  : 'grid-cols-1'
+                }`}>
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map(i => <ProductSkeleton key={i} />)}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">📱</div>
+                  <h3 className="text-xl font-semibold mb-2">No products found</h3>
+                  <p className="text-muted-foreground">
+                    Try adjusting your filters or search terms
+                  </p>
+                </div>
+              )
             ) : (
               <div className={`grid gap-4 md:gap-6 ${viewMode === 'grid'
                 ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
