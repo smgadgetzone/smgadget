@@ -4,12 +4,13 @@ const Product = require("../models/Product");
 const { authMiddleware, adminMiddleware } = require("../middleware/auth");
 
 // GET all products (public)
-// Optimized: Excludes heavy gallery images and long descriptions to prevent memory crashes
+// Optimized: Uses explicit inclusion to only get necessary fields and limits to 40 items to prevent memory crashes
 router.get("/", async (req, res) => {
   try {
     const products = await Product.find()
-      .select("-images -desc -features -video") // Exclude large fields in list view
+      .select("title price img originalPrice discount inStock categories color isTrending isCombo priority quantity createdAt updatedAt")
       .sort({ priority: -1, createdAt: -1 })
+      .limit(40) // Limit to prevent crashing with too many Base64 images
       .lean();
     res.status(200).json(products);
   } catch (err) {
