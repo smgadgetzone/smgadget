@@ -4,13 +4,13 @@ const Product = require("../models/Product");
 const { authMiddleware, adminMiddleware } = require("../middleware/auth");
 
 // GET all products (public)
-// Optimized: Uses explicit inclusion to only get necessary fields and limits to 40 items to prevent memory crashes
+// Optimized: Uses explicit inclusion to only get necessary fields and limits to 30 items to prevent memory crashes and slow mobile loading
 router.get("/", async (req, res) => {
   try {
     const products = await Product.find()
       .select("title price img originalPrice discount inStock categories color isTrending isCombo priority quantity createdAt updatedAt")
       .sort({ priority: -1, createdAt: -1 })
-      .limit(40) // Limit to prevent crashing with too many Base64 images
+      .limit(30) // Strictly limit to speed up mobile loading
       .lean();
     res.status(200).json(products);
   } catch (err) {
