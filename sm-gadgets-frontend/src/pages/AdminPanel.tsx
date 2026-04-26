@@ -378,7 +378,7 @@ const AdminPanel = () => {
     );
   }
 
-  // Helper function to compress images before uploading
+  // Helper function to compress images before uploading to Cloudinary
   const compressImage = (base64Str: string, maxWidth = 1280, maxHeight = 1280): Promise<string> => {
     return new Promise((resolve) => {
       const img = new Image();
@@ -404,18 +404,19 @@ const AdminPanel = () => {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
-        // Using 0.8 quality for high resolution but much smaller file size
         resolve(canvas.toDataURL('image/jpeg', 0.8));
       };
-      img.onerror = () => resolve(base64Str); // Fallback to original if error
+      img.onerror = () => resolve(base64Str);
     });
   };
 
+  // Upload images to Cloudinary via backend API
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, isEditing: boolean = false) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      setIsLoading(true); // Show loader while compressing
+      setIsLoading(true);
       try {
+        // Step 1: Read files as Base64
         const readers: Promise<string>[] = [];
         Array.from(files).forEach(file => {
           readers.push(new Promise((resolve) => {
@@ -426,54 +427,94 @@ const AdminPanel = () => {
         });
 
         const originalBase64Strings = await Promise.all(readers);
-        // Compress each image
+        // Step 2: Compress images client-side (faster upload)
         const compressedStrings = await Promise.all(
           originalBase64Strings.map(str => compressImage(str))
         );
 
+        // Step 3: Upload to Cloudinary via backend
+        toast({ title: 'Uploading...', description: 'Uploading images to cloud storage...' });
+        const response = await fetch(getApiUrl('/api/upload/images'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${user?.token}`
+          },
+          body: JSON.stringify({ images: compressedStrings })
+        });
+
+        if (!response.ok) throw new Error('Upload failed');
+        const { urls } = await response.json();
+
         if (isEditing && editingProduct) {
           setEditingProduct({
             ...editingProduct,
-            image: compressedStrings[0],
-            images: compressedStrings
+            image: urls[0],
+            images: urls
           } as any);
         } else {
           setNewProduct({
             ...newProduct,
-            image: compressedStrings[0],
-            images: compressedStrings
+            image: urls[0],
+            images: urls
           });
         }
+
+        toast({ title: 'Upload Complete', description: `${urls.length} image(s) uploaded to cloud.` });
       } catch (err) {
-        toast({ title: 'Upload Error', description: 'Failed to process images.', variant: 'destructive' });
+        toast({ title: 'Upload Error', description: 'Failed to upload images to cloud. Please try again.', variant: 'destructive' });
       } finally {
         setIsLoading(false);
       }
     }
   };
 
-  const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>, isEditing: boolean = false) => {
+  // Upload video to Cloudinary via backend API
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>, isEditing: boolean = false) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Check file size (Warn if > 15MB which is close to MongoDB's 16MB limit)
-      if (file.size > 15 * 1024 * 1024) {
+      if (file.size > 100 * 1024 * 1024) {
         toast({ 
           title: 'Video too large', 
-          description: 'Please upload a video smaller than 15MB. Larger videos will fail to save.', 
+          description: 'Please upload a video smaller than 100MB.', 
           variant: 'destructive' 
         });
         return;
       }
 
-      const reader = new FileReader();
-      reader.onloadend = () => {
+      setIsLoading(true);
+      try {
+        const reader = new FileReader();
+        const base64 = await new Promise<string>((resolve) => {
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
+
+        toast({ title: 'Uploading...', description: 'Uploading video to cloud storage...' });
+        const response = await fetch(getApiUrl('/api/upload/video'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${user?.token}`
+          },
+          body: JSON.stringify({ video: base64 })
+        });
+
+        if (!response.ok) throw new Error('Video upload failed');
+        const { url } = await response.json();
+
         if (isEditing && editingProduct) {
-          setEditingProduct({ ...editingProduct, video: reader.result as string });
+          setEditingProduct({ ...editingProduct, video: url });
         } else {
-          setNewProduct({ ...newProduct, video: reader.result as string });
+          setNewProduct({ ...newProduct, video: url });
         }
-      };
-      reader.readAsDataURL(file);
+
+        toast({ title: 'Upload Complete', description: 'Video uploaded to cloud.' });
+      } catch (err) {
+        toast({ title: 'Upload Error', description: 'Failed to upload video. Please try again.', variant: 'destructive' });
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 

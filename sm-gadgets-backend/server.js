@@ -34,6 +34,7 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // routes
 app.use("/api/auth", require("./routes/auth"));
 app.use("/api/products", require("./routes/products"));
+app.use("/api/upload", require("./routes/upload"));
 app.use("/api/cart", require("./routes/cart"));
 app.use("/api/orders", require("./routes/orders"));
 app.use("/api/contact", require("./routes/contact"));

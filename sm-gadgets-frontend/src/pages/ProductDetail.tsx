@@ -19,19 +19,71 @@ import { useApp } from '@/context/AppContext';
 
 const ProductDetail = () => {
   const { id } = useParams();
-  const { products, addToCart, addToWishlist, wishlist } = useApp();
+  const { products, addToCart, addToWishlist, wishlist, isLoading } = useApp();
   const navigate = useNavigate();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [selectedColor, setSelectedColor] = useState<string>('');
+  const [directProduct, setDirectProduct] = useState<any>(null);
+  const [isFetchingDirect, setIsFetchingDirect] = useState(false);
 
-  const product = products.find(p => p.id === id);
+  // Try to find product from context first, then use directly fetched data
+  const contextProduct = products.find(p => p.id === id);
+  const product = contextProduct || directProduct;
+
+  // If product not in context (shared link or deep link), fetch it directly
+  React.useEffect(() => {
+    if (!contextProduct && id && !directProduct && !isFetchingDirect) {
+      setIsFetchingDirect(true);
+      import('@/lib/api').then(({ getApiUrl }) => {
+        fetch(getApiUrl(`/api/products/${id}`))
+          .then(res => res.ok ? res.json() : null)
+          .then(data => {
+            if (data) {
+              setDirectProduct({
+                id: data._id,
+                name: data.title || data.name || 'Untitled Product',
+                price: data.price || 0,
+                description: data.desc || data.description || '',
+                category: (data.categories && data.categories[0]) || data.category || '',
+                image: data.img || data.image || '',
+                rating: Number(data.rating) || 4.5,
+                reviews: Number(data.reviews) || 0,
+                inStock: data.inStock !== undefined ? data.inStock : true,
+                originalPrice: data.originalPrice ? Number(data.originalPrice) : undefined,
+                discount: data.discount ? Number(data.discount) : undefined,
+                images: data.images || [],
+                video: data.video || '',
+                categories: data.categories || [],
+                color: data.color || '',
+                features: data.features || [],
+                isTrending: data.isTrending || false,
+                isCombo: data.isCombo || false,
+                priority: Number(data.priority) || 0,
+                quantity: data.quantity !== undefined ? Number(data.quantity) : 0,
+              });
+            }
+          })
+          .catch(err => console.error('Error fetching product:', err))
+          .finally(() => setIsFetchingDirect(false));
+      });
+    }
+  }, [contextProduct, id, directProduct, isFetchingDirect]);
 
   React.useEffect(() => {
-    // Reset selected color if product changes so they must pick again
     setSelectedColor('');
   }, [product]);
 
   if (!product) {
+    if (isLoading || isFetchingDirect) {
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading product...</p>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
