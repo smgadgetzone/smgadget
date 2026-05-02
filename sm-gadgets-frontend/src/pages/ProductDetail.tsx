@@ -26,6 +26,15 @@ const ProductDetail = () => {
   const [selectedColor, setSelectedColor] = useState<string>('');
   const [fullProduct, setFullProduct] = useState<any>(null);
   const [isFetchingFull, setIsFetchingFull] = useState(false);
+  const [api, setApi] = useState<CarouselApi>();
+
+  // Sync thumbnail selection with carousel
+  React.useEffect(() => {
+    if (!api) return;
+    api.on("select", () => {
+      setSelectedImageIndex(api.selectedScrollSnap());
+    });
+  }, [api]);
 
   // Context product is lightweight (no desc, images, video)
   const contextProduct = products.find(p => p.id === id);
@@ -139,19 +148,6 @@ const ProductDetail = () => {
       date: '2024-01-05'
     }
   ];
-
-  const [api, setApi] = useState<CarouselApi>();
-
-  // Sync thumbnail selection with carousel
-  React.useEffect(() => {
-    if (!api) {
-      return;
-    }
-
-    api.on("select", () => {
-      setSelectedImageIndex(api.selectedScrollSnap());
-    });
-  }, [api]);
 
   const scrollToSlide = (index: number) => {
     api?.scrollTo(index);
