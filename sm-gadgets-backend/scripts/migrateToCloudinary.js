@@ -5,27 +5,17 @@
  *   1. Set your .env with CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET
  *   2. Run: node scripts/migrateToCloudinary.js
  * 
- * This script is SAFE to run multiple times — it skips products that already have
- * Cloudinary URLs (starting with "https://res.cloudinary.com").
+ * Safe to run multiple times — skips products already on Cloudinary.
  */
 
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
+dotenv.config(); // MUST be before cloudinary require — it reads env vars at import time
 const cloudinary = require("../utils/cloudinary");
 const Product = require("../models/Product");
 
-dotenv.config();
-
 const isBase64 = (str) => {
   return str && typeof str === "string" && str.startsWith("data:");
-};
-
-const isAlreadyMigrated = (str) => {
-  return (
-    str &&
-    typeof str === "string" &&
-    (str.startsWith("https://res.cloudinary.com") || str.startsWith("http://res.cloudinary.com"))
-  );
 };
 
 const uploadToCloudinary = async (base64Str, folder, resourceType = "image") => {
@@ -33,6 +23,7 @@ const uploadToCloudinary = async (base64Str, folder, resourceType = "image") => 
     const options = {
       folder,
       resource_type: resourceType,
+      timeout: 120000, // 2 minute timeout per upload
     };
 
     if (resourceType === "image") {
@@ -45,28 +36,41 @@ const uploadToCloudinary = async (base64Str, folder, resourceType = "image") => 
     const result = await cloudinary.uploader.upload(base64Str, options);
     return result.secure_url;
   } catch (err) {
-    console.error(`  ❌ Upload failed:`, err.message);
+    console.error(`  ❌ Upload failed: ${err.message}`);
     return null;
   }
 };
 
 const migrateProducts = async () => {
   try {
-    // Connect to MongoDB
-    await mongoose.connect(process.env.MONGO_URL);
+    console.log("🔌 Connecting to MongoDB...");
+    await mongoose.connect(process.env.MONGO_URL, {
+      serverSelectionTimeoutMS: 10000,
+    });
     console.log("✅ Connected to MongoDB\n");
 
-    // Get ALL products (no field filter)
-    const products = await Product.find({});
-    console.log(`📦 Found ${products.length} products to check\n`);
+    // Step 1: Get just the IDs (lightweight)
+    console.log("📋 Fetching product IDs...");
+    const productIds = await Product.find({}).select("_id title").lean();
+    console.log(`📦 Found ${productIds.length} products to check\n`);
 
     let migratedCount = 0;
     let skippedCount = 0;
     let failedCount = 0;
 
-    for (let i = 0; i < products.length; i++) {
-      const product = products[i];
-      const label = `[${i + 1}/${products.length}] ${product.title}`;
+    // Step 2: Process ONE product at a time by fetching individually
+    for (let i = 0; i < productIds.length; i++) {
+      const { _id, title } = productIds[i];
+      const label = `[${i + 1}/${productIds.length}] ${title}`;
+      
+      console.log(`${label}: Fetching full data...`);
+      const product = await Product.findById(_id).lean();
+      
+      if (!product) {
+        console.log(`${label}: ⚠️ Product not found, skipping\n`);
+        continue;
+      }
+
       let needsUpdate = false;
       const updates = {};
 
@@ -77,15 +81,12 @@ const migrateProducts = async () => {
         if (url) {
           updates.img = url;
           needsUpdate = true;
-          console.log(`  ✅ Main image → ${url.substring(0, 60)}...`);
+          console.log(`  ✅ Main image done`);
         } else {
           failedCount++;
-          console.log(`  ❌ Failed to upload main image`);
         }
-      } else if (isAlreadyMigrated(product.img)) {
-        // Already migrated
-      } else if (!product.img) {
-        console.log(`${label}: ⚠️ No main image found`);
+      } else {
+        console.log(`${label}: Main image already OK`);
       }
 
       // 2. Migrate gallery images (images[])
@@ -97,17 +98,17 @@ const migrateProducts = async () => {
           const img = product.images[j];
           if (isBase64(img)) {
             hasBase64Gallery = true;
-            console.log(`${label}: Uploading gallery image ${j + 1}/${product.images.length}...`);
+            console.log(`${label}: Uploading gallery ${j + 1}/${product.images.length}...`);
             const url = await uploadToCloudinary(img, "sm-gadgets/products");
             if (url) {
               newImages.push(url);
-              console.log(`  ✅ Gallery ${j + 1} → ${url.substring(0, 60)}...`);
+              console.log(`  ✅ Gallery ${j + 1} done`);
             } else {
               failedCount++;
               newImages.push(img); // Keep original on failure
             }
           } else {
-            newImages.push(img); // Already a URL, keep it
+            newImages.push(img);
           }
         }
 
@@ -124,35 +125,34 @@ const migrateProducts = async () => {
         if (url) {
           updates.video = url;
           needsUpdate = true;
-          console.log(`  ✅ Video → ${url.substring(0, 60)}...`);
+          console.log(`  ✅ Video done`);
         } else {
           failedCount++;
-          console.log(`  ❌ Failed to upload video`);
         }
       }
 
       // 4. Save updates
       if (needsUpdate) {
-        await Product.findByIdAndUpdate(product._id, { $set: updates });
+        await Product.findByIdAndUpdate(_id, { $set: updates });
         migratedCount++;
-        console.log(`  💾 Saved to database\n`);
+        console.log(`  💾 Saved!\n`);
       } else {
         skippedCount++;
-        console.log(`${label}: ⏭️ Already migrated or no Base64 data\n`);
+        console.log(`  ⏭️ Nothing to migrate\n`);
       }
 
-      // Small delay to avoid Cloudinary rate limits
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // Delay to avoid Cloudinary rate limits
+      await new Promise((r) => setTimeout(r, 500));
     }
 
     console.log("\n" + "=".repeat(50));
     console.log("🎉 MIGRATION COMPLETE!");
     console.log(`  ✅ Migrated: ${migratedCount} products`);
-    console.log(`  ⏭️ Skipped:  ${skippedCount} products (already done)`);
+    console.log(`  ⏭️ Skipped:  ${skippedCount} products`);
     console.log(`  ❌ Failed:   ${failedCount} uploads`);
     console.log("=".repeat(50));
   } catch (err) {
-    console.error("❌ Migration error:", err);
+    console.error("❌ Migration error:", err.message);
   } finally {
     await mongoose.disconnect();
     console.log("\n🔌 Disconnected from MongoDB");

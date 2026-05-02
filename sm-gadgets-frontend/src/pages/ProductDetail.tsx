@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Heart, ShoppingCart, Star, Truck, Shield, RotateCcw, Zap, Check } from 'lucide-react';
+import { ArrowLeft, Heart, ShoppingCart, Star, Truck, Shield, RotateCcw, Zap, Check, Share2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
 import { useApp } from '@/context/AppContext';
+import { getApiUrl } from '@/lib/api';
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -23,58 +24,69 @@ const ProductDetail = () => {
   const navigate = useNavigate();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [selectedColor, setSelectedColor] = useState<string>('');
-  const [directProduct, setDirectProduct] = useState<any>(null);
-  const [isFetchingDirect, setIsFetchingDirect] = useState(false);
+  const [fullProduct, setFullProduct] = useState<any>(null);
+  const [isFetchingFull, setIsFetchingFull] = useState(false);
 
-  // Try to find product from context first, then use directly fetched data
+  // Context product is lightweight (no desc, images, video)
   const contextProduct = products.find(p => p.id === id);
-  const product = contextProduct || directProduct;
+  // Use full product data if available, otherwise fallback to context
+  const product = fullProduct || contextProduct;
 
-  // If product not in context (shared link or deep link), fetch it directly
+  // ALWAYS fetch full product data from API (context has lightweight data only)
   React.useEffect(() => {
-    if (!contextProduct && id && !directProduct && !isFetchingDirect) {
-      setIsFetchingDirect(true);
-      import('@/lib/api').then(({ getApiUrl }) => {
-        fetch(getApiUrl(`/api/products/${id}`))
-          .then(res => res.ok ? res.json() : null)
-          .then(data => {
-            if (data) {
-              setDirectProduct({
-                id: data._id,
-                name: data.title || data.name || 'Untitled Product',
-                price: data.price || 0,
-                description: data.desc || data.description || '',
-                category: (data.categories && data.categories[0]) || data.category || '',
-                image: data.img || data.image || '',
-                rating: Number(data.rating) || 4.5,
-                reviews: Number(data.reviews) || 0,
-                inStock: data.inStock !== undefined ? data.inStock : true,
-                originalPrice: data.originalPrice ? Number(data.originalPrice) : undefined,
-                discount: data.discount ? Number(data.discount) : undefined,
-                images: data.images || [],
-                video: data.video || '',
-                categories: data.categories || [],
-                color: data.color || '',
-                features: data.features || [],
-                isTrending: data.isTrending || false,
-                isCombo: data.isCombo || false,
-                priority: Number(data.priority) || 0,
-                quantity: data.quantity !== undefined ? Number(data.quantity) : 0,
-              });
-            }
-          })
-          .catch(err => console.error('Error fetching product:', err))
-          .finally(() => setIsFetchingDirect(false));
-      });
+    if (id && !isFetchingFull) {
+      setIsFetchingFull(true);
+      fetch(getApiUrl(`/api/products/${id}`))
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data) {
+            setFullProduct({
+              id: data._id,
+              name: data.title || data.name || 'Untitled Product',
+              price: data.price || 0,
+              description: data.desc || data.description || '',
+              category: (data.categories && data.categories[0]) || data.category || '',
+              image: data.img || data.image || '',
+              rating: Number(data.rating) || 4.5,
+              reviews: Number(data.reviews) || 0,
+              inStock: data.inStock !== undefined ? data.inStock : true,
+              originalPrice: data.originalPrice ? Number(data.originalPrice) : undefined,
+              discount: data.discount ? Number(data.discount) : undefined,
+              images: data.images || [],
+              video: data.video || '',
+              categories: data.categories || [],
+              color: data.color || '',
+              features: data.features || [],
+              isTrending: data.isTrending || false,
+              isCombo: data.isCombo || false,
+              priority: Number(data.priority) || 0,
+              quantity: data.quantity !== undefined ? Number(data.quantity) : 0,
+            });
+          }
+        })
+        .catch(err => console.error('Error fetching product:', err))
+        .finally(() => setIsFetchingFull(false));
     }
-  }, [contextProduct, id, directProduct, isFetchingDirect]);
+  }, [id]);
 
   React.useEffect(() => {
     setSelectedColor('');
   }, [product]);
 
+  const handleShare = async () => {
+    const url = window.location.href;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: product?.name, url });
+      } catch { /* user cancelled */ }
+    } else {
+      await navigator.clipboard.writeText(url);
+      toast({ title: 'Link Copied!', description: 'Product link copied to clipboard.' });
+    }
+  };
+
   if (!product) {
-    if (isLoading || isFetchingDirect) {
+    if (isLoading || isFetchingFull) {
       return (
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
@@ -374,6 +386,14 @@ const ProductDetail = () => {
                 className="w-16 h-16 rounded-xl border-2 border-primary/20 text-primary hover:bg-primary/10 hover:border-primary transition-colors flex-shrink-0 flex items-center justify-center p-0"
               >
                 <Heart className={`h-7 w-7 transition-transform ${isInWishlist ? 'fill-primary' : ''}`} />
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleShare}
+                className="w-16 h-16 rounded-xl border-2 border-primary/20 text-primary hover:bg-primary/10 hover:border-primary transition-colors flex-shrink-0 flex items-center justify-center p-0"
+                title="Share this product"
+              >
+                <Share2 className="h-7 w-7" />
               </Button>
             </div>
 
