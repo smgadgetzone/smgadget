@@ -3,13 +3,25 @@ const router = express.Router();
 const Product = require("../models/Product");
 const { authMiddleware, adminMiddleware } = require("../middleware/auth");
 
-// GET all products (public)
-// All images now stored as Cloudinary URLs — lightweight and fast
+// GET all products (public) — excludes soft-deleted products
 router.get("/", async (req, res) => {
   try {
-    const products = await Product.find()
+    const products = await Product.find({ isDeleted: { $ne: true } })
       .select("title price img originalPrice discount inStock categories color isTrending isCombo priority quantity createdAt updatedAt")
       .sort({ priority: -1, createdAt: -1 })
+      .lean();
+    res.status(200).json(products);
+  } catch (err) {
+    res.status(500).json(err);
+  }
+});
+
+// GET deleted products (admin only — recycle bin)
+router.get("/bin/deleted", authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const products = await Product.find({ isDeleted: true })
+      .select("title price img originalPrice discount categories deletedAt createdAt")
+      .sort({ deletedAt: -1 })
       .lean();
     res.status(200).json(products);
   } catch (err) {
@@ -37,7 +49,6 @@ router.post("/", authMiddleware, adminMiddleware, async (req, res) => {
     res.status(201).json(savedProduct);
   } catch (err) {
     console.error(`[Product Add Error]:`, err);
-    // Return specific error message if it exists
     res.status(500).json({ 
       message: err.message || "Internal Server Error",
       error: err.name === 'ValidationError' ? err.errors : err
@@ -63,11 +74,35 @@ router.put("/:id", authMiddleware, adminMiddleware, async (req, res) => {
   }
 });
 
-// DELETE product (admin only)
+// DELETE product — soft delete (move to bin)
 router.delete("/:id", authMiddleware, adminMiddleware, async (req, res) => {
   try {
+    await Product.findByIdAndUpdate(req.params.id, {
+      $set: { isDeleted: true, deletedAt: new Date() }
+    });
+    res.status(200).json("Product moved to bin");
+  } catch (err) {
+    res.status(500).json(err);
+  }
+});
+
+// PUT restore product from bin (admin only)
+router.put("/bin/restore/:id", authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    await Product.findByIdAndUpdate(req.params.id, {
+      $set: { isDeleted: false, deletedAt: null }
+    });
+    res.status(200).json("Product restored");
+  } catch (err) {
+    res.status(500).json(err);
+  }
+});
+
+// DELETE permanently (admin only — from bin)
+router.delete("/bin/permanent/:id", authMiddleware, adminMiddleware, async (req, res) => {
+  try {
     await Product.findByIdAndDelete(req.params.id);
-    res.status(200).json("Product has been deleted...");
+    res.status(200).json("Product permanently deleted");
   } catch (err) {
     res.status(500).json(err);
   }

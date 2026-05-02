@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Package, Users, ShoppingCart, TrendingUp, Download, Search, X } from 'lucide-react';
+import { Plus, Edit, Trash2, Package, Users, ShoppingCart, TrendingUp, Download, Search, X, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -40,6 +40,7 @@ const AdminPanel = () => {
   const [dateFilter, setDateFilter] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [productSearch, setProductSearch] = useState('');
+  const [binProducts, setBinProducts] = useState<any[]>([]);
 
   const [coupons, setCoupons] = useState<any[]>([]);
   const [isAddingCoupon, setIsAddingCoupon] = useState(false);
@@ -623,7 +624,7 @@ const AdminPanel = () => {
   };
 
   const handleDeleteProduct = async (productId: string) => {
-    if (!window.confirm("Are you sure you want to delete this product?")) return;
+    if (!window.confirm("Move this product to the Recycle Bin?")) return;
 
     try {
       const response = await fetch(getApiUrl(`/api/products/${productId}`), {
@@ -636,10 +637,54 @@ const AdminPanel = () => {
       if (!response.ok) throw new Error('Failed to delete product');
 
       dispatch({ type: 'DELETE_PRODUCT', payload: productId });
-      toast({ title: 'Product Deleted', description: 'Product has been removed from the catalog.' });
+      toast({ title: 'Moved to Bin', description: 'Product has been moved to the recycle bin. You can restore it anytime.' });
     } catch (error) {
       console.error('Error deleting product:', error);
       toast({ title: 'Error', description: 'Failed to delete product', variant: 'destructive' });
+    }
+  };
+
+  const fetchBinProducts = async () => {
+    try {
+      const response = await fetch(getApiUrl('/api/products/bin/deleted'), {
+        headers: { 'Authorization': `Bearer ${user?.token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setBinProducts(data);
+      }
+    } catch (err) {
+      console.error('Error fetching bin:', err);
+    }
+  };
+
+  const handleRestoreProduct = async (productId: string) => {
+    try {
+      const response = await fetch(getApiUrl(`/api/products/bin/restore/${productId}`), {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${user?.token}` }
+      });
+      if (!response.ok) throw new Error('Failed to restore');
+      toast({ title: 'Restored!', description: 'Product has been restored to the catalog.' });
+      fetchBinProducts();
+      fetchProducts();
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to restore product', variant: 'destructive' });
+    }
+  };
+
+  const handlePermanentDelete = async (productId: string) => {
+    if (!window.confirm("PERMANENTLY delete this product? This cannot be undone!")) return;
+    try {
+      const response = await fetch(getApiUrl(`/api/products/bin/permanent/${productId}`), {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${user?.token}` }
+      });
+      if (!response.ok) throw new Error('Failed to delete');
+      toast({ title: 'Permanently Deleted', description: 'Product has been permanently removed.' });
+      fetchBinProducts();
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to permanently delete', variant: 'destructive' });
     }
   };
 
@@ -688,6 +733,7 @@ const AdminPanel = () => {
             <TabsTrigger value="orders">Orders</TabsTrigger>
             <TabsTrigger value="shipping" className="text-primary font-bold">🚀 Shipping (Shiprocket)</TabsTrigger>
             <TabsTrigger value="coupons">Coupons</TabsTrigger>
+            <TabsTrigger value="bin" onClick={() => fetchBinProducts()}>🗑️ Bin</TabsTrigger>
           </TabsList>
 
           {/* =========== OVERVIEW TAB =========== */}
@@ -1491,6 +1537,77 @@ const AdminPanel = () => {
                 </table>
               </div>
             </div>
+          </TabsContent>
+
+          {/* =========== RECYCLE BIN TAB =========== */}
+          <TabsContent value="bin">
+            <Card className="glass border-white/10">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  🗑️ Recycle Bin
+                  <Badge variant="secondary">{binProducts.length} item(s)</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {binProducts.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <p className="text-4xl mb-4">🎉</p>
+                    <p className="text-lg font-medium">Recycle Bin is empty</p>
+                    <p className="text-sm">Deleted products will appear here for recovery</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-white/10">
+                          <th className="p-3 text-left">Image</th>
+                          <th className="p-3 text-left">Name</th>
+                          <th className="p-3 text-left">Price</th>
+                          <th className="p-3 text-left">Deleted On</th>
+                          <th className="p-3 text-left">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {binProducts.map((p: any) => (
+                          <tr key={p._id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                            <td className="p-3">
+                              {p.img && (
+                                <img src={p.img} alt={p.title} className="w-12 h-12 rounded object-cover" />
+                              )}
+                            </td>
+                            <td className="p-3 font-medium">{p.title}</td>
+                            <td className="p-3">₹{p.price?.toLocaleString()}</td>
+                            <td className="p-3 text-muted-foreground text-xs">
+                              {p.deletedAt ? new Date(p.deletedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                            </td>
+                            <td className="p-3">
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-green-500 border-green-500/30 hover:bg-green-500/10"
+                                  onClick={() => handleRestoreProduct(p._id)}
+                                >
+                                  <RotateCcw className="h-4 w-4 mr-1" /> Restore
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-red-500 border-red-500/30 hover:bg-red-500/10"
+                                  onClick={() => handlePermanentDelete(p._id)}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-1" /> Delete Forever
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
 

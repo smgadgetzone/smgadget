@@ -19,7 +19,7 @@ const Checkout = () => {
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<{code: string, discountType: string, discountValue: number} | null>(null);
   const [couponLoading, setCouponLoading] = useState(false);
-  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(true);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -61,8 +61,7 @@ const Checkout = () => {
 
   discount = Math.min(discount, subtotal); // Prevent negative total
   const discountedSubtotal = subtotal - discount;
-  const tax = Math.round(discountedSubtotal * 0.05); // 5% GST
-  const total = discountedSubtotal + deliveryFee + tax;
+  const total = discountedSubtotal + deliveryFee;
 
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) return;
@@ -598,10 +597,7 @@ const Checkout = () => {
                       ⚠️ ₹{COD_DELIVERY_FEE} COD delivery fee is mandatory and non-refundable. This covers return shipping if the order is refused at delivery.
                     </p>
                   )}
-                  <div className="flex items-center justify-between">
-                    <span>GST (5%)</span>
-                    <span>₹{tax.toLocaleString()}</span>
-                  </div>
+
                   <Separator />
                   <div className="flex items-center justify-between text-lg font-bold">
                     <span>Total</span>
@@ -615,6 +611,7 @@ const Checkout = () => {
                     id="terms" 
                     className="mt-1 h-4 w-4 rounded border-white/20 bg-white/10 text-primary focus:ring-primary"
                     required
+                    defaultChecked
                     onChange={(e) => setTermsAccepted(e.target.checked)}
                   />
                   <Label htmlFor="terms" className="text-xs text-muted-foreground leading-normal cursor-pointer">

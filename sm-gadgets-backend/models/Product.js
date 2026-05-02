@@ -99,6 +99,10 @@ const ProductSchema = new mongoose.Schema(
     length: { type: Number, default: 10 },     // in cm
     breadth: { type: Number, default: 10 },    // in cm
     height: { type: Number, default: 5 },      // in cm
+
+    // Soft delete (recycle bin)
+    isDeleted: { type: Boolean, default: false },
+    deletedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

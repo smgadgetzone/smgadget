@@ -48,8 +48,7 @@ const Cart = () => {
 
   const subtotal = getTotalPrice();
   const shipping = 59; // Flat shipping rate globally
-  const tax = Math.round(subtotal * 0.05); // 5% GST
-  const total = subtotal + shipping + tax;
+  const total = subtotal + shipping;
 
   return (
     <div className="min-h-screen py-8">
@@ -179,10 +178,6 @@ const Cart = () => {
                     <span>₹{shipping}</span>
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <span>GST (5%)</span>
-                    <span>₹{tax.toLocaleString()}</span>
-                  </div>
 
                   <Separator />
 
